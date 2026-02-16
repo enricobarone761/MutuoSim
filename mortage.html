@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcolatore Mutuo Pro</title>
+    <!-- Chart.js 4.x -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Sidebar: Inputs -->
+        <div class="input-section">
+            <div class="card">
+                <h1>Mutuo Sim</h1>
+
+                <div class="input-group">
+                    <label>Importo Mutuo (€)</label>
+                    <input type="number" id="amount" value="160000" step="1000">
+                </div>
+
+                <div class="input-group">
+                    <label>Durata (Anni)</label>
+                    <input type="number" id="years" value="30" step="1">
+                </div>
+
+                <div class="input-group">
+                    <label>Tasso Base Annuo (%)</label>
+                    <input type="number" id="rate" value="3.5" step="0.1">
+                </div>
+
+                <!-- Tasso Variabile Manuale -->
+                <div class="toggle-container">
+                    <input type="checkbox" id="isVariable" class="toggle-checkbox">
+                    <div>
+                        <label for="isVariable" style="margin:0; cursor:pointer; color: #a855f7;">Scenario Variabile
+                            Manuale</label>
+                        <small
+                            style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Definisci
+                            tassi per periodi futuri.</small>
+                    </div>
+                </div>
+
+                <div id="variable-section" style="display:none;">
+                    <div id="rate-periods-container"></div>
+                    <button class="btn btn-add" id="addPeriodBtn">+ Periodo</button>
+                </div>
+
+                <!-- Tasso Euribor -->
+                <div class="toggle-container"
+                    style="background: rgba(59, 130, 246, 0.05); border-left: 4px solid #3b82f6;">
+                    <input type="checkbox" id="useEuribor" class="toggle-checkbox" style="accent-color: #3b82f6;">
+                    <div>
+                        <label for="useEuribor" style="margin:0; cursor:pointer; color: #3b82f6;">Simulazione
+                            Euribor</label>
+                        <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Usa
+                            dati storici reali.</small>
+                    </div>
+                </div>
+
+                <div id="euribor-section" style="display:none;">
+                    <p id="euriborStatus" style="font-size: 0.8rem; margin-bottom: 10px;"></p>
+                    <div class="input-group">
+                        <label>Tipo Euribor</label>
+                        <select id="euriborTenor">
+                            <option value="1M">1 Mese</option>
+                            <option value="3M" selected>3 Mesi</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Data Inizio</label>
+                        <input type="month" id="euriborStart" value="1999-01">
+                    </div>
+                    <div class="input-group">
+                        <label>Spread (%)</label>
+                        <input type="number" id="euriborSpread" value="0.6" step="0.1" min="0">
+                    </div>
+                </div>
+
+                <hr>
+
+                <h3>Estinzioni Parziali</h3>
+                <div class="input-group">
+                    <label>Importo Extra (€)</label>
+                    <input type="number" id="extraAmount" value="0" step="50">
+                </div>
+
+                <div class="input-group">
+                    <label>Frequenza</label>
+                    <select id="extraFrequency">
+                        <option value="0">Mai</option>
+                        <option value="1">Una Tantum (Inizio)</option>
+                        <option value="12">Annuale</option>
+                        <option value="6">Semestrale</option>
+                        <option value="3">Trimestrale</option>
+                        <option value="1_monthly">Mensile</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Mese di Inizio Extra (0=Subito)</label>
+                    <input type="number" id="extraStartMonth" value="0" step="1" min="0">
+                </div>
+
+                <div class="input-group">
+                    <label>Durata Extra (Anni, 0=Sempre)</label>
+                    <input type="number" id="extraDuration" value="0" step="1" min="0">
+                </div>
+
+                <div class="input-group">
+                    <label>Effetto</label>
+                    <select id="extraEffect">
+                        <option value="duration">Riduci Durata</option>
+                        <option value="installment">Riduci Rata</option>
+                    </select>
+                </div>
+
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+
+                <h3>Arrotondamento Rata</h3>
+                <div class="input-group">
+                    <label>Arrotonda Rata a (€, 0=Disattivo)</label>
+                    <input type="number" id="roundUpAmount" value="0" step="10" min="0">
+                </div>
+                <small
+                    style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:-8px; margin-bottom: 12px;">
+                    La differenza tra la rata calcolata e questo importo verrà applicata come estinzione parziale
+                    mensile. Usa "Mese di Inizio" e "Durata Extra" sopra per controllare il periodo.
+                </small>
+
+            </div>
+        </div>
+
+        <!-- Main: Results & Chart -->
+        <div class="results-section">
+            <div class="results-card">
+                <div class="results-header">
+                    <div class="results-grid">
+                        <div class="result-box rata-toggle" id="rataBox" title="Clicca per analisi sensibilità">
+                            <span class="label">Rata Iniziale</span>
+                            <span class="value" id="outInitialPayment">--</span>
+                            <span class="rata-chevron" id="rataChevron">▼</span>
+                        </div>
+                        <div class="result-box">
+                            <span class="label">Rata Massima</span>
+                            <span class="value" id="outMaxPayment">--</span>
+                        </div>
+                        <div class="result-box">
+                            <span class="label">Interessi Totali</span>
+                            <span class="value" id="outTotalInterest">--</span>
+                        </div>
+                        <div class="result-box">
+                            <span class="label">Totale Pagato</span>
+                            <span class="value" id="outTotalPaid">--</span>
+                        </div>
+
+                        <div id="saved-time-box" class="result-box" style="display: none;">
+                            <span class="label">⏱️ Tempo Risparmiato</span>
+                            <span class="value" id="outSavedTime" style="color: #10b981;">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Pannello Sensibilità Rata -->
+                    <div id="rataSensitivityPanel" class="sensitivity-panel" style="display: none;">
+                        <table class="sensitivity-table">
+                            <thead>
+                                <tr>
+                                    <th class="sensitivity-corner"></th>
+                                    <th id="hdr-col-0">--</th>
+                                    <th id="hdr-col-1">--</th>
+                                    <th id="hdr-col-2">--</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <th id="hdr-row-0">--</th>
+                                    <td id="cell-plus5y-plus05r">--</td>
+                                    <td id="cell-curr-y-plus05r">--</td>
+                                    <td id="cell-minus5y-plus05r">--</td>
+                                </tr>
+                                <tr>
+                                    <th id="hdr-row-1">--</th>
+                                    <td id="cell-plus5y-curr-r">--</td>
+                                    <td id="cell-curr-y-curr-r" class="sensitivity-current">--</td>
+                                    <td id="cell-minus5y-curr-r">--</td>
+                                </tr>
+                                <tr>
+                                    <th id="hdr-row-2">--</th>
+                                    <td id="cell-plus5y-minus05r">--</td>
+                                    <td id="cell-curr-y-minus05r">--</td>
+                                    <td id="cell-minus5y-minus05r">--</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <div class="chart-container">
+                        <canvas id="mortgageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="euribor_data.js"></script>
+    <script src="euribor.js"></script>
+    <script src="script.js"></script>
+
+</body>
+
+</html>
