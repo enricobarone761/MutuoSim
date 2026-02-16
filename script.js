@@ -16,6 +16,7 @@ const extraStartMonthInput = document.getElementById('extraStartMonth');
 const extraDurationInput = document.getElementById('extraDuration');
 const extraEffectSelect = document.getElementById('extraEffect');
 const roundUpAmountInput = document.getElementById('roundUpAmount');
+const rateNumericInput = document.getElementById('rateNumeric');
 
 const outInitialPayment = document.getElementById('outInitialPayment');
 const outMaxPayment = document.getElementById('outMaxPayment');
@@ -36,6 +37,16 @@ extraStartMonthInput.addEventListener('input', calculate);
 extraDurationInput.addEventListener('input', calculate);
 extraEffectSelect.addEventListener('change', calculate);
 roundUpAmountInput.addEventListener('input', calculate);
+
+if (rateNumericInput) {
+    rateNumericInput.addEventListener('input', function () {
+        const val = parseFloat(this.value);
+        if (!isNaN(val)) {
+            rateInput.value = val;
+            calculate();
+        }
+    });
+}
 
 // Toggle Sensitivity Panel
 rataBox.addEventListener('click', function () {
@@ -164,6 +175,12 @@ function calculate() {
     const P = parseFloat(amountInput.value) || 0;
     const years = parseInt(yearsInput.value) || 0;
     const baseRate = parseFloat(rateInput.value) || 0;
+
+    // Sincronizza il badge numerico se non è l'elemento attivo (per evitare loop di focus/input)
+    if (rateNumericInput && document.activeElement !== rateNumericInput) {
+        rateNumericInput.value = baseRate.toFixed(1);
+    }
+    updateSliderFill(rateInput);
     const extraPayment = parseFloat(extraAmountInput.value) || 0;
     const extraFreqValue = extraFrequencySelect.value;
     const extraStartMonth = parseInt(extraStartMonthInput.value) || 0;
@@ -766,6 +783,18 @@ function updateSensitivityTable(P, years, baseRate) {
             }
         }
     }
+}
+
+// Funzione per il fill dinamico dei range input (stile volume)
+function updateSliderFill(slider) {
+    if (!slider) return;
+    const min = parseFloat(slider.min) || 0;
+    const max = parseFloat(slider.max) || 100;
+    const value = parseFloat(slider.value) || 0;
+    const percentage = ((value - min) / (max - min)) * 100;
+
+    // Gradient from active color (indigo) to transparent/muted
+    slider.style.background = `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%, rgba(255, 255, 255, 0.1) 100%)`;
 }
 
 // Avvio iniziale
