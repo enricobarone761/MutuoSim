@@ -1,66 +1,137 @@
-// Variabili globali
+/**
+ * ===========================================================================
+ *  MutuoSim — script.js
+ * ===========================================================================
+ *
+ *  Motore principale del simulatore di mutuo.
+ *  Gestisce: input utente, simulazione ammortamento francese mese-per-mese,
+ *  estinzione parziale (periodica / una-tantum), arrotondamento rata,
+ *  tasso variabile manuale, integrazione Euribor storico (via euribor.js),
+ *  grafico Chart.js e tabella di sensibilità 3×3.
+ *
+ *  ─── INDICE SEZIONI ───
+ *
+ *   1. VARIABILI GLOBALI & RIFERIMENTI DOM
+ *   2. EVENT LISTENERS — binding di tutti gli input al ricalcolo
+ *   3. GESTIONE PERIODI TASSO VARIABILE — addRatePeriod / removeRatePeriod / getRatePeriods
+ *   4. UTILITÀ DI FORMATTAZIONE — fmtCurr (valuta EUR)
+ *   5. FUNZIONE PRINCIPALE calculate() — orchestratore: legge input, lancia 2 simulazioni
+ *      (baseline e con extra), calcola risparmi, aggiorna output e grafico
+ *   6. FUNZIONE runSimulation(params) — core del motore: loop mese-per-mese con
+ *      ammortamento francese, interessi, estinzione parziale, arrotondamento,
+ *      tasso variabile / Euribor, generazione dati grafico
+ *   7. resetOutputs() — azzera i campi output e distrugge il grafico
+ *   8. updateChart() — crea/aggiorna il grafico Chart.js (5 dataset, 3 assi Y)
+ *   9. calcRata() — formula pura ammortamento francese (usata dalla sensibilità)
+ *  10. updateSensitivityTable() — tabella 3×3 con variazioni ±5 anni e ±0,5% tasso
+ *  11. updateSliderFill() — stile dinamico slider range (effetto "volume bar")
+ *  12. AVVIO — chiamata iniziale a calculate()
+ *
+ *  ─── DIPENDENZE ───
+ *  • Chart.js + plugin annotation (CDN)
+ *  • euribor.js   → espone getEuriborConfig(), updateEuriborUI(), variabili DOM Euribor
+ *  • euribor_data.js → espone EURIBOR_LOCAL_DATA (tassi storici)
+ *  • style.css    → variabili CSS (--accent, --danger, --text-main, --text-muted, ecc.)
+ *
+ * ===========================================================================
+ */
+
+
+/* ==========================================================================
+ *  1. VARIABILI GLOBALI & RIFERIMENTI DOM
+ *  --------------------------------------------------------------------------
+ *  - myChart: istanza Chart.js corrente (distrutta e ricreata ad ogni ricalcolo)
+ *  - periodCounter: contatore auto-incrementante per gli ID dei periodi variabili
+ * ========================================================================== */
+
 let myChart = null;
 let periodCounter = 0;
 
-// Riferimenti DOM
-const amountInput = document.getElementById('amount');
-const yearsInput = document.getElementById('years');
-const rateInput = document.getElementById('rate');
-const isVariableCheckbox = document.getElementById('isVariable');
-const variableSection = document.getElementById('variable-section');
-const ratePeriodsContainer = document.getElementById('rate-periods-container');
-const addPeriodBtn = document.getElementById('addPeriodBtn');
-const extraAmountInput = document.getElementById('extraAmount');
-const extraFrequencySelect = document.getElementById('extraFrequency');
-const extraStartMonthInput = document.getElementById('extraStartMonth');
-const extraDurationInput = document.getElementById('extraDuration');
-const extraEffectSelect = document.getElementById('extraEffect');
-const roundUpAmountInput = document.getElementById('roundUpAmount');
-const roundUpAnnualIncreaseInput = document.getElementById('roundUpAnnualIncrease');
-const rateNumericInput = document.getElementById('rateNumeric');
+// --- Input principali del mutuo ---
+const amountInput = document.getElementById('amount');        // Importo del mutuo (€)
+const yearsInput = document.getElementById('years');         // Durata (anni)
+const rateInput = document.getElementById('rate');          // Tasso annuo (%) — slider range
+const rateNumericInput = document.getElementById('rateNumeric'); // Tasso annuo (%) — input numerico badge
 
-const outInitialPayment = document.getElementById('outInitialPayment');
-const outMaxPayment = document.getElementById('outMaxPayment');
-const outTotalInterest = document.getElementById('outTotalInterest');
-const outTotalPaid = document.getElementById('outTotalPaid');
-const savedTimeBox = document.getElementById('saved-time-box');
-const outSavedTime = document.getElementById('outSavedTime');
-const rataBox = document.getElementById('rataBox');
-const rataSensitivityPanel = document.getElementById('rataSensitivityPanel');
+// --- Sezione tasso variabile manuale ---
+const isVariableCheckbox = document.getElementById('isVariable');        // Checkbox attiva/disattiva
+const variableSection = document.getElementById('variable-section');  // Container sezione
+const ratePeriodsContainer = document.getElementById('rate-periods-container'); // Container righe periodi
+const addPeriodBtn = document.getElementById('addPeriodBtn');      // Bottone "aggiungi periodo"
 
-// Event Listeners
+// --- Sezione estinzione parziale ---
+const extraAmountInput = document.getElementById('extraAmount');       // Importo extra (€)
+const extraFrequencySelect = document.getElementById('extraFrequency');   // Frequenza: mensile / trimestrale / annuale / una-tantum
+const extraStartMonthInput = document.getElementById('extraStartMonth');  // Mese di inizio (ritardo partenza)
+const extraDurationInput = document.getElementById('extraDuration');    // Durata pagamenti extra (anni, 0 = illimitato)
+const extraEffectSelect = document.getElementById('extraEffect');      // Effetto: 'duration' (riduce durata) o 'installment' (riduce rata)
+
+// --- Sezione arrotondamento rata ---
+const roundUpAmountInput = document.getElementById('roundUpAmount');         // Rata arrotondata target (€)
+const roundUpAnnualIncreaseInput = document.getElementById('roundUpAnnualIncrease'); // Incremento annuo (%) dell'arrotondamento
+
+// --- Output numerici ---
+const outInitialPayment = document.getElementById('outInitialPayment'); // Rata iniziale
+const outMaxPayment = document.getElementById('outMaxPayment');     // Rata massima nel ciclo di vita
+const outTotalInterest = document.getElementById('outTotalInterest');  // Totale interessi pagati
+const outTotalPaid = document.getElementById('outTotalPaid');      // Totale versato (capitale + interessi)
+
+// --- Box risparmio stimato ---
+const savedTimeBox = document.getElementById('saved-time-box'); // Contenitore box risparmio
+const outSavedTime = document.getElementById('outSavedTime');   // Div interno con durata/interessi risparmiati
+
+// --- Tabella sensibilità ---
+const rataBox = document.getElementById('rataBox');              // Box cliccabile "Rata Mensile" che apre la tabella
+const rataSensitivityPanel = document.getElementById('rataSensitivityPanel'); // Pannello tabella sensibilità
+
+
+/* ==========================================================================
+ *  2. EVENT LISTENERS
+ *  --------------------------------------------------------------------------
+ *  Ogni modifica a qualsiasi input rilancia calculate() per aggiornare
+ *  in tempo reale output, grafico e tabella sensibilità.
+ * ========================================================================== */
+
+// --- Input principali → ricalcolo immediato ---
 amountInput.addEventListener('input', calculate);
 yearsInput.addEventListener('input', calculate);
 rateInput.addEventListener('input', calculate);
+
+// --- Estinzione parziale → ricalcolo ---
 extraAmountInput.addEventListener('input', calculate);
 extraFrequencySelect.addEventListener('change', calculate);
 extraStartMonthInput.addEventListener('input', calculate);
 extraDurationInput.addEventListener('input', calculate);
 extraEffectSelect.addEventListener('change', calculate);
+
+// --- Arrotondamento rata → ricalcolo ---
 roundUpAmountInput.addEventListener('input', calculate);
 roundUpAnnualIncreaseInput.addEventListener('input', calculate);
 
+// --- Sincronizzazione bidirezionale slider ↔ input numerico del tasso ---
 if (rateNumericInput) {
     rateNumericInput.addEventListener('input', function () {
         const val = parseFloat(this.value);
         if (!isNaN(val)) {
-            rateInput.value = val;
+            rateInput.value = val;   // Aggiorna lo slider
             calculate();
         }
     });
 }
 
-// Toggle Sensitivity Panel
+// --- Toggle pannello sensibilità (click su box rata) ---
 rataBox.addEventListener('click', function () {
     const isOpen = rataSensitivityPanel.style.display !== 'none';
     rataSensitivityPanel.style.display = isOpen ? 'none' : 'block';
     rataBox.classList.toggle('active', !isOpen);
 });
 
+// --- Toggle sezione tasso variabile manuale ---
+// Nota: variabile manuale ed Euribor sono mutuamente esclusivi
 isVariableCheckbox.addEventListener('change', function () {
     variableSection.style.display = this.checked ? 'block' : 'none';
 
-    // Disabilita Euribor se variabile manuale è attivo
+    // Disabilita Euribor se variabile manuale è attivato
     if (this.checked && euriborCheckbox.checked) {
         euriborCheckbox.checked = false;
         euriborSection.style.display = 'none';
@@ -68,11 +139,13 @@ isVariableCheckbox.addEventListener('change', function () {
     calculate();
 });
 
+// --- Bottone aggiunta periodo variabile ---
 addPeriodBtn.addEventListener('click', function () {
     addRatePeriod();
 });
 
-// Event Listeners Euribor
+// --- Euribor: toggle, cambio tenor, data inizio, spread → ricalcolo ---
+// (Le variabili DOM euriborCheckbox, euriborSection ecc. sono definite in euribor.js)
 euriborCheckbox.addEventListener('change', function () {
     euriborSection.style.display = this.checked ? 'block' : 'none';
 
@@ -104,7 +177,24 @@ euriborTenorSelect.addEventListener('change', function () {
 euriborStartInput.addEventListener('change', calculate);
 euriborSpreadInput.addEventListener('input', calculate);
 
-// Funzioni per gestire periodi di tasso variabile
+
+/* ==========================================================================
+ *  3. GESTIONE PERIODI TASSO VARIABILE (manuale)
+ *  --------------------------------------------------------------------------
+ *  Permette di definire N intervalli [meseInizio, meseFine] con un tasso
+ *  personalizzato. I periodi vengono aggiunti dinamicamente al DOM.
+ *  Ogni periodo ha 3 input (inizio, fine, tasso) + bottone rimuovi.
+ * ========================================================================== */
+
+/**
+ * Aggiunge una nuova riga "periodo variabile" al DOM.
+ * Ogni riga contiene: mese inizio, mese fine, tasso (%), bottone rimuovi.
+ * Aggiunge anche i listener 'input' → calculate() su tutti e 3 i campi.
+ *
+ * @param {number} startMonth - Mese di inizio del periodo (default 1)
+ * @param {number} endMonth   - Mese di fine del periodo (default 12)
+ * @param {number} rate       - Tasso annuo % per il periodo (default 4.0)
+ */
 function addRatePeriod(startMonth = 1, endMonth = 12, rate = 4.0) {
     periodCounter++;
     const id = 'period-' + periodCounter;
@@ -131,7 +221,7 @@ function addRatePeriod(startMonth = 1, endMonth = 12, rate = 4.0) {
 
     ratePeriodsContainer.appendChild(row);
 
-    // Aggiungi listener agli input
+    // Ogni input della riga rilancia il calcolo
     row.querySelectorAll('input').forEach(input => {
         input.addEventListener('input', calculate);
     });
@@ -139,6 +229,10 @@ function addRatePeriod(startMonth = 1, endMonth = 12, rate = 4.0) {
     calculate();
 }
 
+/**
+ * Rimuove un periodo variabile dal DOM e ricalcola.
+ * @param {string} id - ID dell'elemento DOM della riga da rimuovere (es. "period-3")
+ */
 function removeRatePeriod(id) {
     const row = document.getElementById(id);
     if (row) {
@@ -147,6 +241,11 @@ function removeRatePeriod(id) {
     }
 }
 
+/**
+ * Legge dal DOM tutti i periodi di tasso variabile attualmente definiti.
+ * @returns {Array<{start: number, end: number, rate: number}>}
+ *   Array di oggetti con mese inizio, mese fine, tasso annuo (%).
+ */
 function getRatePeriods() {
     const periods = [];
     const rows = ratePeriodsContainer.querySelectorAll('.rate-period-row');
@@ -162,7 +261,18 @@ function getRatePeriods() {
     return periods;
 }
 
-// Funzione di formattazione valuta
+
+/* ==========================================================================
+ *  4. UTILITÀ DI FORMATTAZIONE
+ * ========================================================================== */
+
+/**
+ * Formatta un valore numerico come valuta EUR in formato italiano.
+ * Esempio: 1234.56 → "1.234,56 €"
+ *
+ * @param {number} val - Importo da formattare
+ * @returns {string} Stringa formattata con simbolo €
+ */
 function fmtCurr(val) {
     return new Intl.NumberFormat('it-IT', {
         style: 'currency',
@@ -172,25 +282,47 @@ function fmtCurr(val) {
     }).format(val);
 }
 
-// Funzione principale di calcolo
-function calculate() {
-    const P = parseFloat(amountInput.value) || 0;
-    const years = parseInt(yearsInput.value) || 0;
-    const baseRate = parseFloat(rateInput.value) || 0;
 
-    // Sincronizza il badge numerico se non è l'elemento attivo (per evitare loop di focus/input)
+/* ==========================================================================
+ *  5. FUNZIONE PRINCIPALE — calculate()
+ *  --------------------------------------------------------------------------
+ *  Orchestratore principale. Viene chiamata ad ogni modifica degli input.
+ *
+ *  Flusso:
+ *    1. Legge tutti gli input dal DOM
+ *    2. Esegue una simulazione "baseline" (senza extra) — per calcolare i risparmi
+ *    3. Esegue la simulazione "attuale" (con extra/arrotondamento dell'utente)
+ *    4. Calcola risparmi (mesi e interessi)
+ *    5. Aggiorna gli output numerici nel DOM
+ *    6. Aggiorna il box "Analisi Estinzione" con dettagli risparmio in HTML
+ *    7. Aggiorna il grafico Chart.js
+ *    8. Aggiorna la tabella di sensibilità 3×3
+ * ========================================================================== */
+
+function calculate() {
+    // --- Lettura input principali ---
+    const P = parseFloat(amountInput.value) || 0;          // Capitale del mutuo
+    const years = parseInt(yearsInput.value) || 0;         // Durata in anni
+    const baseRate = parseFloat(rateInput.value) || 0;     // Tasso annuo base (%)
+
+    // Sincronizza il badge numerico con lo slider (evita loop se l'utente sta digitando sul badge)
     if (rateNumericInput && document.activeElement !== rateNumericInput) {
         rateNumericInput.value = baseRate.toFixed(1);
     }
     updateSliderFill(rateInput);
-    const extraPayment = parseFloat(extraAmountInput.value) || 0;
-    const extraFreqValue = extraFrequencySelect.value;
-    const extraStartMonth = parseInt(extraStartMonthInput.value) || 0;
-    const extraDurationYears = parseInt(extraDurationInput.value) || 0;
-    const extraEffect = extraEffectSelect.value; // 'duration' o 'installment'
-    const roundUpAmount = parseFloat(roundUpAmountInput.value) || 0;
-    const roundUpAnnualIncrease = parseFloat(roundUpAnnualIncreaseInput.value) || 0;
 
+    // --- Lettura input estinzione parziale ---
+    const extraPayment = parseFloat(extraAmountInput.value) || 0;        // Importo extra per pagamento
+    const extraFreqValue = extraFrequencySelect.value;                   // Codice frequenza (stringa)
+    const extraStartMonth = parseInt(extraStartMonthInput.value) || 0;   // Mese inizio (ritardo)
+    const extraDurationYears = parseInt(extraDurationInput.value) || 0;  // Durata extra (anni, 0 = illimitato)
+    const extraEffect = extraEffectSelect.value;                         // 'duration' (riduce durata) o 'installment' (riduce rata)
+
+    // --- Lettura input arrotondamento rata ---
+    const roundUpAmount = parseFloat(roundUpAmountInput.value) || 0;              // Rata target arrotondata
+    const roundUpAnnualIncrease = parseFloat(roundUpAnnualIncreaseInput.value) || 0; // Incremento % annuo
+
+    // Validazione base: capitale e durata devono essere > 0
     if (P <= 0 || years <= 0) {
         resetOutputs();
         return;
@@ -200,20 +332,27 @@ function calculate() {
     const isVariable = isVariableCheckbox.checked;
     const ratePeriods = isVariable ? getRatePeriods() : [];
 
-    // Controlla se la modalità Euribor è attiva
+    // Configurazione Euribor (se il modulo euribor.js è caricato)
     const euriborConfig = (typeof getEuriborConfig === 'function') ? getEuriborConfig() : { active: false, rates: [] };
 
-    // Converti frequenza extra
-    let extraFreqMonths = 0; // ogni quanti mesi si applica l'extra
+    // --- Conversione codice frequenza → numero di mesi ---
+    // Valori possibili del <select>:
+    //   '1_monthly' → ogni mese (1)
+    //   '1'         → una tantum (-1, applicato solo una volta al primo mese utile)
+    //   '3'         → trimestrale
+    //   '6'         → semestrale
+    //   '12'        → annuale
+    let extraFreqMonths = 0;
     if (extraFreqValue === '1_monthly') {
-        extraFreqMonths = 1;
+        extraFreqMonths = 1;        // Ogni mese
     } else if (extraFreqValue === '1') {
-        extraFreqMonths = -1; // una tantum, solo mese 1
+        extraFreqMonths = -1;       // Una tantum (solo primo mese utile dopo l'inizio)
     } else {
         extraFreqMonths = parseInt(extraFreqValue) || 0;
     }
 
-    // 1. Simulazione Baseline (Senza Extra) - per calcolare il risparmio
+    // ── SIMULAZIONE 1: Baseline (senza extra) ──
+    // Serve per calcolare il risparmio di tempo e interessi rispetto al mutuo "puro".
     const baselineResults = runSimulation({
         P,
         totalMonths,
@@ -228,10 +367,11 @@ function calculate() {
         extraEffect: 'duration',
         roundUpAmount: 0,
         roundUpAnnualIncrease: 0,
-        generateChart: false
+        generateChart: false   // Non servono dati per il grafico
     });
 
-    // 2. Simulazione Attuale (Con Extra Input Utente)
+    // ── SIMULAZIONE 2: Attuale (con parametri utente) ──
+    // Questa genera anche i dati per il grafico.
     const results = runSimulation({
         P,
         totalMonths,
@@ -249,29 +389,29 @@ function calculate() {
         generateChart: true
     });
 
-    // Calcolo Risparmi
+    // ── CALCOLO RISPARMI ──
     const interestSaved = Math.max(0, baselineResults.totalInterestPaid - results.totalInterestPaid);
 
     let savedMonths = 0;
     const hasExtras = (extraPayment > 0 && extraFreqMonths !== 0) || roundUpAmount > 0 || roundUpAnnualIncrease > 0;
 
-    // Calcola mesi risparmiati rispetto alla durata totale prevista
-    // Nota: confrontiamo con totalMonths perché è la durata contrattuale.
+    // Mesi risparmiati: differenza tra durata contrattuale e durata effettiva
     if (hasExtras && results.actualMonths < totalMonths) {
         savedMonths = totalMonths - results.actualMonths;
     }
 
-    // Aggiorna output numerici
+    // ── AGGIORNAMENTO OUTPUT NUMERICI ──
     outInitialPayment.innerText = fmtCurr(results.firstRata);
     outMaxPayment.innerText = fmtCurr(results.maxRataSeen);
     outTotalInterest.innerText = fmtCurr(results.totalInterestPaid);
     outTotalPaid.innerText = fmtCurr(P + results.totalInterestPaid);
 
-    // Gestione Box Risparmio (Tempo + Interessi)
+    // ── AGGIORNAMENTO BOX "ANALISI ESTINZIONE" ──
+    // Mostra: tempo risparmiato, extra versato, interessi risparmiati
     if (hasExtras && (savedMonths > 0 || interestSaved > 1.0 || results.totalExtraPaid > 0)) {
         let savedText = '';
 
-        // Tempo Risparmiato
+        // Formatta il tempo risparmiato in "X anni e Y mesi"
         if (savedMonths > 0) {
             const savedYears = Math.floor(savedMonths / 12);
             const savedMonthsRemainder = savedMonths % 12;
@@ -281,16 +421,16 @@ function calculate() {
             savedText = 'Nessuna riduzione durata';
         }
 
-        // Modifica etichetta box
+        // Aggiorna l'etichetta del box
         const savedLabel = savedTimeBox.querySelector('.label');
         if (savedLabel) savedLabel.textContent = '📊 Analisi Estinzione';
 
-        // Costruisci il contenuto HTML più strutturato
+        // Costruisce il contenuto HTML con layout a griglia 2 colonne
         let htmlContent = `<div style="margin-bottom: 8px; font-weight:600; font-size: 1.1em; color: var(--text-main);">${savedText} <span style="font-weight:400; font-size:0.9em; color:var(--text-muted);">in meno</span></div>`;
 
         htmlContent += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">`;
 
-        // Colonna Extra Versato
+        // Colonna sinistra: Extra Versato (arancione)
         if (results.totalExtraPaid > 0) {
             htmlContent += `
              <div style="text-align: right; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 15px;">
@@ -298,10 +438,10 @@ function calculate() {
                 <span style="font-size: 1.1rem; font-weight: 700; color: #fb923c;">${fmtCurr(results.totalExtraPaid)}</span>
              </div>`;
         } else {
-            htmlContent += `<div></div>`; // Spacer if 0
+            htmlContent += `<div></div>`; // Spacer se 0
         }
 
-        // Colonna Risparmio Interessi
+        // Colonna destra: Interessi Risparmiati (verde)
         htmlContent += `
              <div style="text-align: left; padding-left: 5px;">
                 <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block;">Interessi Risparmiati</span>
@@ -315,14 +455,59 @@ function calculate() {
         savedTimeBox.style.display = 'block';
     } else {
         savedTimeBox.style.display = 'none';
-        // Ripristina etichetta default se necessario, ma non critico
     }
 
+    // ── AGGIORNAMENTO GRAFICO ──
     updateChart(results.chartLabels, results.chartDataBalance, results.chartDataInterest, results.chartDataPayment, results.chartDataActualPayment, results.chartDataRate, results.historicalEndLabel);
 
-    // Aggiorna tabella sensibilità
+    // ── AGGIORNAMENTO TABELLA SENSIBILITÀ ──
     updateSensitivityTable(P, years, baseRate);
 }
+
+
+/* ==========================================================================
+ *  6. FUNZIONE CORE — runSimulation(params)
+ *  --------------------------------------------------------------------------
+ *  Simula il mutuo mese per mese con ammortamento francese.
+ *
+ *  Gestisce:
+ *    - Tasso fisso, tasso variabile manuale (periodi), tasso Euribor storico
+ *    - Ricalcolo rata quando il tasso cambia (debito residuo / mesi residui)
+ *    - Estinzione parziale periodica (mensile, trimestrale, annuale, una-tantum)
+ *      con effetto "riduzione durata" o "riduzione rata"
+ *    - Arrotondamento rata con incremento annuo composto
+ *    - Campionamento dati per il grafico (trimestrale + punto fine storia)
+ *
+ *  @param {Object} params - Parametri di simulazione:
+ *    @param {number}  params.P                    - Capitale iniziale del mutuo
+ *    @param {number}  params.totalMonths           - Durata contrattuale in mesi
+ *    @param {number}  params.baseRate              - Tasso annuo base (%)
+ *    @param {Object}  params.euriborConfig         - {active, rates[], historicalCount}
+ *    @param {Array}   params.ratePeriods           - [{start, end, rate}] periodi variabili
+ *    @param {boolean} params.isVariable            - true se tasso variabile manuale attivo
+ *    @param {number}  params.extraPayment          - Importo singolo pagamento extra (€)
+ *    @param {number}  params.extraFreqMonths       - Frequenza extra: 1=mensile, -1=una-tantum, N=ogni N mesi
+ *    @param {number}  params.extraStartMonth       - Mese dopo il quale iniziano gli extra
+ *    @param {number}  params.extraDurationYears    - Durata degli extra (anni), 0=illimitato
+ *    @param {string}  params.extraEffect           - 'duration' (riduce durata) o 'installment' (riduce rata)
+ *    @param {number}  params.roundUpAmount         - Rata target per arrotondamento (€)
+ *    @param {number}  params.roundUpAnnualIncrease - Incremento annuo (%) dell'arrotondamento
+ *    @param {boolean} params.generateChart         - true per generare i dati del grafico
+ *
+ *  @returns {Object} Risultati della simulazione:
+ *    - firstRata           {number}   Rata del primo mese
+ *    - maxRataSeen         {number}   Rata massima osservata
+ *    - totalInterestPaid   {number}   Totale interessi pagati
+ *    - totalExtraPaid      {number}   Totale pagamenti extra effettuati
+ *    - actualMonths        {number}   Mesi effettivi (≤ totalMonths se chiuso anticipatamente)
+ *    - chartLabels         {string[]} Etichette asse X
+ *    - chartDataBalance    {number[]} Debito residuo per punto campionato
+ *    - chartDataInterest   {number[]} Interessi cumulati per punto campionato
+ *    - chartDataPayment    {number[]} Rata teorica (senza extra) per punto campionato
+ *    - chartDataActualPayment {number[]} Versamento effettivo (rata + extra) per punto campionato
+ *    - chartDataRate       {number[]} Tasso annuo (%) per punto campionato
+ *    - historicalEndLabel  {string|null} Etichetta del punto in cui finiscono i dati Euribor storici
+ * ========================================================================== */
 
 function runSimulation(params) {
     const {
@@ -342,8 +527,9 @@ function runSimulation(params) {
         generateChart
     } = params;
 
-    // --- Calcola la rata iniziale standard (ammortamento francese) ---
-    // Se Euribor è attivo, usa il primo tasso Euribor; altrimenti il tasso base
+    // --- Calcolo rata iniziale (ammortamento francese) ---
+    // Se Euribor è attivo, il primo tasso è quello storico del primo mese;
+    // altrimenti si usa il tasso base impostato dall'utente.
     let firstRate = baseRate;
     if (euriborConfig.active && euriborConfig.rates.length > 0) {
         firstRate = euriborConfig.rates[0];
@@ -351,23 +537,24 @@ function runSimulation(params) {
     let initialMonthlyRate = Math.max(0, firstRate / 100 / 12);
     let initialRata;
     if (initialMonthlyRate === 0) {
-        initialRata = P / totalMonths;
+        initialRata = P / totalMonths;   // Tasso zero → rata = capitale / mesi
     } else {
+        // Formula ammortamento francese: R = P × r / (1 − (1+r)^−n)
         initialRata = (P * initialMonthlyRate) / (1 - Math.pow(1 + initialMonthlyRate, -totalMonths));
     }
 
-    // Variabili di simulazione
-    let currentBalance = P;
-    let totalInterestPaid = 0;
-    let totalExtraPaid = 0; // Nuovo accumulatore per extra
-    let firstRata = initialRata;
-    let maxRataSeen = 0;
-    let currentRata = initialRata; // rata corrente (può cambiare con tasso variabile o modalità 'installment')
-    let prevAnnualRate = firstRate; // per tracciare i cambi di tasso
-    let historicalEndLabel = null; // etichetta esatta per la linea rossa
-    let actualMonths = totalMonths; // mesi effettivi del mutuo
+    // --- Stato della simulazione ---
+    let currentBalance = P;              // Debito residuo corrente
+    let totalInterestPaid = 0;           // Accumulatore interessi pagati
+    let totalExtraPaid = 0;              // Accumulatore pagamenti extra (periodici + arrotondamento)
+    let firstRata = initialRata;         // Rata del primo mese (salvata per output)
+    let maxRataSeen = 0;                 // Rata massima osservata (solo rata standard, senza extra)
+    let currentRata = initialRata;       // Rata corrente — cambia con tasso variabile o effetto 'installment'
+    let prevAnnualRate = firstRate;       // Tasso del mese precedente (per rilevare cambiamenti)
+    let historicalEndLabel = null;        // Etichetta del punto di fine dati storici Euribor
+    let actualMonths = totalMonths;      // Mesi effettivi (decresce se mutuo chiuso prima)
 
-    // Dati per il grafico
+    // --- Array per il grafico (popolati solo se generateChart = true) ---
     let chartLabels = [];
     let chartDataBalance = [];
     let chartDataInterest = [];
@@ -375,17 +562,19 @@ function runSimulation(params) {
     let chartDataActualPayment = [];
     let chartDataRate = [];
 
-    // Simulazione mese per mese
+    // ══════════════════════════════════════════════
+    //  LOOP PRINCIPALE — un'iterazione per ogni mese
+    // ══════════════════════════════════════════════
     for (let m = 1; m <= totalMonths && currentBalance > 0.01; m++) {
 
-        // 1. Determina il tasso per questo mese
+        // ── STEP 1: Determinazione tasso per il mese corrente ──
         let currentAnnualRate = baseRate;
 
         if (euriborConfig.active && euriborConfig.rates.length > 0) {
-            // Modalità Euribor: usa il tasso storico per questo mese
+            // Modalità Euribor: usa il tasso storico (o il fallback se oltre i dati)
             currentAnnualRate = euriborConfig.rates[Math.min(m - 1, euriborConfig.rates.length - 1)];
         } else if (isVariable && ratePeriods.length > 0) {
-            // Modalità variabile manuale
+            // Modalità variabile manuale: cerca il periodo che include questo mese
             for (let period of ratePeriods) {
                 if (m >= period.start && m <= period.end) {
                     currentAnnualRate = period.rate;
@@ -395,7 +584,8 @@ function runSimulation(params) {
         }
         let monthlyRate = Math.max(0, currentAnnualRate / 100 / 12);
 
-        // Se il tasso è cambiato, ricalcola la rata sul debito residuo e mesi rimanenti
+        // ── Se il tasso è cambiato rispetto al mese precedente,
+        //    ricalcola la rata sul debito residuo con i mesi rimanenti ──
         if (currentAnnualRate !== prevAnnualRate) {
             let remainingMonths = totalMonths - (m - 1);
             if (remainingMonths > 0 && currentBalance > 0.01) {
@@ -408,55 +598,61 @@ function runSimulation(params) {
             prevAnnualRate = currentAnnualRate;
         }
 
-        // 2. Calcola gli interessi di questo mese
+        // ── STEP 2: Calcolo interessi del mese ──
         let quotaInteressi = currentBalance * monthlyRate;
 
-        // 3. Determina la rata mensile da pagare
+        // ── STEP 3: Determinazione rata da pagare ──
         let rataDaPagare = currentRata;
 
-        // Se il saldo restante è inferiore alla rata, chiudi il mutuo
+        // Se il saldo + interessi è inferiore alla rata, chiudi il mutuo con l'ultimo pagamento
         if (currentBalance + quotaInteressi <= rataDaPagare) {
             rataDaPagare = currentBalance + quotaInteressi;
         }
 
         let quotaCapitale = rataDaPagare - quotaInteressi;
 
-        // 4. Gestione Estinzione Parziale
-        let extraPeriodic = 0;  // Extra da pagamenti periodici (soggetto a effetto durata/rata)
-        let extraRoundup = 0;   // Extra da arrotondamento (riduce sempre e solo la durata)
+        // ── STEP 4: Gestione estinzione parziale ──
+        // Due componenti indipendenti:
+        //   • extraPeriodic: pagamento extra definito dall'utente (soggetto a effetto duration/installment)
+        //   • extraRoundup:  differenza tra rata arrotondata e rata corrente (riduce SEMPRE la durata)
+        let extraPeriodic = 0;
+        let extraRoundup = 0;
         let applyExtra = false;
 
-        // Controlla se siamo nel periodo valido per gli extra (basato su mese di inizio e durata)
+        // Verifica se il mese corrente è nel periodo valido per gli extra
+        // (considerando il mese di inizio e la durata specificata dall'utente)
         const isInExtraPeriod = (m > extraStartMonth) && (extraDurationYears === 0 || m <= extraStartMonth + (extraDurationYears * 12));
 
-        // Extra periodici (importo fisso con frequenza specifica)
+        // ── Extra periodici (importo fisso con frequenza specifica) ──
         if (extraPayment > 0 && extraFreqMonths !== 0 && isInExtraPeriod) {
             if (extraFreqMonths === -1 && m === extraStartMonth + 1) {
-                applyExtra = true; // Una tantum (primo mese utile dopo l'inizio)
+                applyExtra = true;  // Una tantum: solo il primo mese utile dopo l'inizio
             } else if (extraFreqMonths === 1) {
-                applyExtra = true; // Mensile
+                applyExtra = true;  // Mensile: ogni mese
             } else if (extraFreqMonths > 1) {
-                // Per frequenze periodiche, considera l'offset del mese di inizio
+                // Periodico: ogni N mesi a partire dal mese di inizio
                 if ((m - extraStartMonth) % extraFreqMonths === 0) applyExtra = true;
             }
 
             if (applyExtra) {
+                // L'extra non può eccedere il debito residuo dopo il capitale ordinario
                 extraPeriodic = Math.min(extraPayment, currentBalance - quotaCapitale);
                 if (extraPeriodic < 0) extraPeriodic = 0;
             }
         }
 
-        // Arrotondamento rata (solo se attivo e nel periodo valido)
-        // L'arrotondamento non può essere negativo: se roundUpAmount < currentRata, extra rimane 0
-        // L'arrotondamento riduce SEMPRE la durata (non innesca ricalcolo rata)
+        // ── Arrotondamento rata (sempre attivo nel periodo, riduce solo la durata) ──
+        // Se la rata target arrotondata è superiore alla rata corrente, la differenza
+        // diventa un extra che riduce il capitale (e quindi la durata).
+        // L'importo target cresce annualmente con il tasso di incremento composto.
         if (roundUpAmount > 0 && isInExtraPeriod) {
-            // Incremento annuo composto sull'importo target (ogni 12 mesi)
             const yearsElapsed = Math.floor((m - 1) / 12);
             const growthFactor = Math.pow(1 + roundUpAnnualIncrease / 100, yearsElapsed);
             const effectiveRoundUpAmount = roundUpAmount * growthFactor;
 
             if (effectiveRoundUpAmount > currentRata) {
                 const roundUpDiff = effectiveRoundUpAmount - currentRata;
+                // L'extra arrotondamento non può superare il debito residuo meno capitale ordinario e extra periodico
                 const maxRoundUpExtra = Math.max(0, currentBalance - quotaCapitale - extraPeriodic);
                 extraRoundup = Math.min(roundUpDiff, maxRoundUpExtra);
             }
@@ -465,10 +661,11 @@ function runSimulation(params) {
         let extra = extraPeriodic + extraRoundup;
         totalExtraPaid += extra;
 
-        // 5. Applica pagamenti
+        // ── STEP 5: Applicazione dei pagamenti ──
         totalInterestPaid += quotaInteressi;
         let capitalePagato = quotaCapitale + extra;
 
+        // Se il capitale pagato copre tutto il debito, chiudi
         if (capitalePagato >= currentBalance) {
             capitalePagato = currentBalance;
             currentBalance = 0;
@@ -476,11 +673,12 @@ function runSimulation(params) {
             currentBalance -= capitalePagato;
         }
 
-        // Traccia la rata (solo la rata standard, non gli extra)
+        // Traccia la rata massima (solo rata standard, senza extra)
         if (rataDaPagare > maxRataSeen) maxRataSeen = rataDaPagare;
 
-        // 6. Dopo un pagamento extra PERIODICO, ricalcola la rata se in modalità 'installment'
-        // L'arrotondamento NON innesca il ricalcolo: riduce sempre solo la durata
+        // ── STEP 6: Ricalcolo rata dopo extra periodico in modalità 'installment' ──
+        // In modalità 'installment', gli extra periodici riducono la rata futura
+        // (anziché la durata). L'arrotondamento NON innesca questo ricalcolo.
         if (extraPeriodic > 0 && extraEffect === 'installment' && currentBalance > 0.01) {
             let remainingMonths = totalMonths - m;
             if (remainingMonths > 0) {
@@ -492,7 +690,8 @@ function runSimulation(params) {
             }
         }
 
-        // 7. Dati Grafico (campionamento trimestrale + punto di fine storia)
+        // ── STEP 7: Campionamento dati per il grafico ──
+        // Campionamento: mese 1, ogni 3 mesi, fine dati storici Euribor, ultimo mese
         if (generateChart) {
             const isHistoricalEnd = (euriborConfig.active && m === euriborConfig.historicalCount);
 
@@ -501,20 +700,18 @@ function runSimulation(params) {
                 chartLabels.push(label);
                 chartDataBalance.push(Math.max(0, currentBalance));
                 chartDataInterest.push(totalInterestPaid);
-                // Rata teorica (senza extra) per la linea base
-                chartDataPayment.push(currentRata);
-                // Versamento effettivo = rata pagata + extra versati (arrotondamento + periodici)
-                chartDataActualPayment.push(rataDaPagare + extra);
-                chartDataRate.push(currentAnnualRate); // Store rate
+                chartDataPayment.push(currentRata);                    // Rata teorica (senza extra)
+                chartDataActualPayment.push(rataDaPagare + extra);     // Versamento effettivo (rata + extra)
+                chartDataRate.push(currentAnnualRate);                 // Tasso annuo corrente
 
-                // Salva l'etichetta se siamo alla fine della storia reale (e non è la fine del mutuo)
+                // Segna il punto di transizione da dati storici a proiezione
                 if (isHistoricalEnd && m < totalMonths && currentBalance > 0.01) {
                     historicalEndLabel = label;
                 }
             }
         }
 
-        // Traccia i mesi effettivi se il mutuo termina anticipatamente
+        // ── Chiusura anticipata: se il debito è azzerato, registra il mese e esci ──
         if (currentBalance <= 0.01) {
             actualMonths = m;
             break;
@@ -537,6 +734,14 @@ function runSimulation(params) {
     };
 }
 
+
+/* ==========================================================================
+ *  7. resetOutputs()
+ *  --------------------------------------------------------------------------
+ *  Azzera tutti i campi output e distrugge il grafico.
+ *  Chiamata quando gli input non sono validi (capitale o durata ≤ 0).
+ * ========================================================================== */
+
 function resetOutputs() {
     outInitialPayment.innerText = '--';
     outMaxPayment.innerText = '--';
@@ -545,28 +750,57 @@ function resetOutputs() {
     if (myChart) myChart.destroy();
 }
 
-// Configurazione Grafico
+
+/* ==========================================================================
+ *  8. updateChart() — Grafico Chart.js
+ *  --------------------------------------------------------------------------
+ *  Distrugge il grafico precedente e ne crea uno nuovo con 5 dataset:
+ *
+ *    Dataset 0 — Debito Residuo (€)         → area verde   (asse Y sinistro)
+ *    Dataset 1 — Rata Mensile (€)           → linea blu    (asse Y destro)
+ *    Dataset 2 — Versamento Effettivo (€)   → linea tratteggiata ambra (asse Y destro, nascosto di default)
+ *    Dataset 3 — Interessi Cumulati (€)     → area rossa   (asse Y sinistro)
+ *    Dataset 4 — Tasso %                    → nascosto     (asse Y hidden, solo tooltip)
+ *
+ *  Se historicalEndLabel è impostato (modalità Euribor), disegna una linea
+ *  verticale tratteggiata arancione con etichetta "Fine Dati Storici".
+ *
+ *  3 assi Y:
+ *    • y:         importi in migliaia (€k)  — sinistro
+ *    • y_payment: importi mensili (€)       — destro
+ *    • y_hidden:  tasso 0-10% (nascosto)
+ *
+ *  @param {string[]} labels             - Etichette asse X (es. "Mese 1", "Mese 3", ...)
+ *  @param {number[]} balanceData        - Debito residuo
+ *  @param {number[]} interestData       - Interessi cumulati
+ *  @param {number[]} paymentData        - Rata teorica (senza extra)
+ *  @param {number[]} actualPaymentData  - Versamento effettivo (rata + extra)
+ *  @param {number[]} rateData           - Tasso annuo (%)
+ *  @param {string|null} historicalEndLabel - Etichetta punto fine dati storici
+ * ========================================================================== */
+
 function updateChart(labels, balanceData, interestData, paymentData, actualPaymentData, rateData, historicalEndLabel) {
     const ctx = document.getElementById('mortgageChart').getContext('2d');
 
     if (myChart) myChart.destroy();
 
-    // Create Gradients
+    // --- Gradienti per le aree "fill" ---
     let gradientBalance = ctx.createLinearGradient(0, 0, 0, 400);
-    gradientBalance.addColorStop(0, 'rgba(16, 185, 129, 0.4)'); // Emerald 500
+    gradientBalance.addColorStop(0, 'rgba(16, 185, 129, 0.4)');   // Emerald 500 (trasparente verso il basso)
     gradientBalance.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
 
     let gradientInterest = ctx.createLinearGradient(0, 0, 0, 400);
-    gradientInterest.addColorStop(0, 'rgba(244, 63, 94, 0.4)'); // Rose 500
+    gradientInterest.addColorStop(0, 'rgba(244, 63, 94, 0.4)');   // Rose 500
     gradientInterest.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
 
+    // --- Annotazione: linea verticale "Fine Dati Storici" (se Euribor attivo) ---
     const annotations = {};
     if (historicalEndLabel) {
         annotations.historicalLine = {
             type: 'line',
             xMin: historicalEndLabel,
             xMax: historicalEndLabel,
-            borderColor: '#fb923c', // Orange 400
+            borderColor: '#fb923c',      // Orange 400
             borderWidth: 2,
             borderDash: [6, 4],
             label: {
@@ -580,8 +814,9 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
         };
     }
 
+    // --- Font e colori globali Chart.js ---
     Chart.defaults.font.family = "'Inter', sans-serif";
-    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.color = '#94a3b8';  // Slate 400
 
     myChart = new Chart(ctx, {
         type: 'line',
@@ -589,9 +824,10 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
             labels: labels,
             datasets: [
                 {
+                    // Dataset 0: Debito Residuo — area verde con gradiente
                     label: 'Debito Residuo (€)',
                     data: balanceData,
-                    borderColor: '#10b981', // Emerald 500
+                    borderColor: '#10b981',
                     backgroundColor: gradientBalance,
                     fill: true,
                     tension: 0.4,
@@ -601,9 +837,10 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     yAxisID: 'y'
                 },
                 {
+                    // Dataset 1: Rata Mensile — linea blu (rata standard senza extra)
                     label: 'Rata Mensile (€)',
                     data: paymentData,
-                    borderColor: '#3b82f6', // Blue 500
+                    borderColor: '#3b82f6',
                     backgroundColor: '#3b82f6',
                     borderWidth: 2,
                     pointRadius: 0,
@@ -612,10 +849,12 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     yAxisID: 'y_payment'
                 },
                 {
+                    // Dataset 2: Versamento Effettivo — linea tratteggiata ambra
+                    // Visibile di default, mostra rata + extra (arrotondamento + periodici)
                     label: 'Versamento Effettivo (€)',
-                    hidden: true,
+                    hidden: false,
                     data: actualPaymentData,
-                    borderColor: '#f59e0b', // Amber 400
+                    borderColor: '#f59e0b',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
                     borderDash: [5, 4],
@@ -625,9 +864,10 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     yAxisID: 'y_payment'
                 },
                 {
+                    // Dataset 3: Interessi Cumulati — area rossa con gradiente
                     label: 'Interessi Cumulati (€)',
                     data: interestData,
-                    borderColor: '#f43f5e', // Rose 500
+                    borderColor: '#f43f5e',
                     backgroundColor: gradientInterest,
                     fill: true,
                     borderWidth: 2,
@@ -637,13 +877,14 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     yAxisID: 'y'
                 },
                 {
+                    // Dataset 4: Tasso % — invisibile (nessun bordo/punto), serve solo per il tooltip
                     label: 'Tasso %',
                     data: rateData,
                     borderColor: 'transparent',
                     backgroundColor: 'transparent',
                     pointRadius: 0,
                     borderWidth: 0,
-                    yAxisID: 'y_hidden' // Use hidden axis
+                    yAxisID: 'y_hidden'
                 }
             ]
         },
@@ -651,7 +892,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
             responsive: true,
             maintainAspectRatio: false,
             interaction: {
-                mode: 'index',
+                mode: 'index',       // Tooltip mostra tutti i dataset per lo stesso indice X
                 intersect: false,
             },
             plugins: {
@@ -663,7 +904,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                         padding: 20,
                         font: { size: 12, weight: 500 },
                         filter: function (item, chart) {
-                            // Hide "Tasso %" from legend
+                            // Nasconde "Tasso %" dalla legenda (è solo per il tooltip)
                             return !item.text.includes('Tasso');
                         }
                     }
@@ -672,7 +913,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     annotations: annotations
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)', // Slate 900
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',   // Slate 900
                     titleColor: '#f8fafc',
                     bodyColor: '#cbd5e1',
                     borderColor: 'rgba(255,255,255,0.1)',
@@ -698,6 +939,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                 }
             },
             scales: {
+                // Asse X — mesi
                 x: {
                     grid: {
                         color: 'rgba(255, 255, 255, 0.05)',
@@ -710,6 +952,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                         font: { size: 11 }
                     }
                 },
+                // Asse Y sinistro — importi cumulativi (debito, interessi) in migliaia
                 y: {
                     type: 'linear',
                     display: true,
@@ -726,12 +969,13 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                         display: false,
                     }
                 },
+                // Asse Y destro — importi mensili (rata, versamento effettivo) in €
                 y_payment: {
                     type: 'linear',
                     display: true,
                     position: 'right',
                     grid: { display: false },
-                    // Impostiamo un range che lasci "aria" sopra le linee della rata
+                    // Range con margine 10% sopra e sotto per leggibilità
                     suggestedMin: (() => {
                         const minVal = Math.min(...paymentData, ...actualPaymentData.filter(v => v > 0), 500);
                         return minVal * 0.9;
@@ -742,7 +986,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                     })(),
                     ticks: {
                         callback: (val) => val.toFixed(0) + ' €',
-                        color: '#60a5fa', // Blue 400
+                        color: '#60a5fa',    // Blue 400
                         font: { size: 11 }
                     },
                     title: {
@@ -752,9 +996,10 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                         font: { size: 10, weight: 600 }
                     }
                 },
+                // Asse Y nascosto — serve per posizionare i dati del tasso (range 0-10%)
                 y_hidden: {
                     type: 'linear',
-                    display: false, // Hidden axis for rate data
+                    display: false,
                     min: 0,
                     max: 10
                 }
@@ -763,7 +1008,22 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
     });
 }
 
-// Funzione per calcolare la rata con ammortamento francese
+
+/* ==========================================================================
+ *  9. calcRata() — Formula ammortamento francese (pura)
+ *  --------------------------------------------------------------------------
+ *  Usata dalla tabella di sensibilità per calcolare rate con parametri diversi.
+ *  NON tiene conto di extra, arrotondamenti o tassi variabili.
+ *
+ *  Formula: R = P × r / (1 − (1 + r)^−n)
+ *  dove r = tasso mensile, n = numero mesi totali
+ *
+ *  @param {number} principal  - Capitale del mutuo (€)
+ *  @param {number} years      - Durata in anni
+ *  @param {number} annualRate - Tasso annuo (%)
+ *  @returns {number} Rata mensile (€)
+ * ========================================================================== */
+
 function calcRata(principal, years, annualRate) {
     if (principal <= 0 || years <= 0) return 0;
     const months = years * 12;
@@ -772,17 +1032,38 @@ function calcRata(principal, years, annualRate) {
     return (principal * mr) / (1 - Math.pow(1 + mr, -months));
 }
 
-// Aggiorna la tabella sensibilità 3x3
+
+/* ==========================================================================
+ *  10. updateSensitivityTable() — Tabella sensibilità 3×3
+ *  --------------------------------------------------------------------------
+ *  Mostra una matrice 3×3 di rate possibili variando:
+ *    - Colonne: durata ±5 anni e attuale  (es. 35, 30, 25 anni)
+ *    - Righe:   tasso ±0,5% e attuale     (es. 3,5%, 3%, 2,5%)
+ *
+ *  Le intestazioni mostrano il valore assoluto e il delta tra parentesi
+ *  (es. "35 anni (+5)" / "3,5% (+0,5)").
+ *  La cella centrale corrisponde alla configurazione corrente dell'utente.
+ *
+ *  Le celle sono referenziate tramite ID nel DOM:
+ *    cell-{plus5y|curr|minus5y}-{plus05r|curr-r|minus05r}
+ *
+ *  @param {number} P        - Capitale del mutuo (€)
+ *  @param {number} years    - Durata attuale (anni)
+ *  @param {number} baseRate - Tasso annuo attuale (%)
+ * ========================================================================== */
+
 function updateSensitivityTable(P, years, baseRate) {
-    const yearOffsets = [5, 0, -5];
-    const rateOffsets = [0.5, 0, -0.5];
+    const yearOffsets = [5, 0, -5];       // Colonne: +5, attuale, -5
+    const rateOffsets = [0.5, 0, -0.5];   // Righe:   +0.5%, attuale, -0.5%
+
+    // Mappa ID celle DOM (righe × colonne)
     const cellIds = [
         ['cell-plus5y-plus05r', 'cell-curr-y-plus05r', 'cell-minus5y-plus05r'],
         ['cell-plus5y-curr-r', 'cell-curr-y-curr-r', 'cell-minus5y-curr-r'],
         ['cell-plus5y-minus05r', 'cell-curr-y-minus05r', 'cell-minus5y-minus05r']
     ];
 
-    // Aggiorna intestazioni colonne (anni)
+    // --- Aggiorna intestazioni colonne (variazioni durata) ---
     for (let c = 0; c < 3; c++) {
         const y = years + yearOffsets[c];
         const hdr = document.getElementById('hdr-col-' + c);
@@ -794,7 +1075,7 @@ function updateSensitivityTable(P, years, baseRate) {
         }
     }
 
-    // Aggiorna intestazioni righe (tasso)
+    // --- Aggiorna intestazioni righe (variazioni tasso) ---
     const pctFmt = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     for (let r = 0; r < 3; r++) {
         const rate = baseRate + rateOffsets[r];
@@ -807,14 +1088,14 @@ function updateSensitivityTable(P, years, baseRate) {
         }
     }
 
-    // Aggiorna celle valori
+    // --- Popola le 9 celle con la rata calcolata ---
     for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 3; c++) {
             const y = years + yearOffsets[c];
             const rate = baseRate + rateOffsets[r];
             const cell = document.getElementById(cellIds[r][c]);
             if (y <= 0 || rate < 0) {
-                cell.textContent = 'N/A';
+                cell.textContent = 'N/A';   // Combinazione non valida
             } else {
                 cell.textContent = fmtCurr(calcRata(P, y, rate));
             }
@@ -822,7 +1103,17 @@ function updateSensitivityTable(P, years, baseRate) {
     }
 }
 
-// Funzione per il fill dinamico dei range input (stile volume)
+
+/* ==========================================================================
+ *  11. updateSliderFill() — Stile dinamico slider range
+ *  --------------------------------------------------------------------------
+ *  Applica un gradiente lineare allo sfondo dello slider per simulare
+ *  un effetto "volume bar" (la parte a sinistra è colorata, la destra è opaca).
+ *  Colore attivo: viola (#8b5cf6 — Violet 500).
+ *
+ *  @param {HTMLInputElement} slider - Elemento <input type="range">
+ * ========================================================================== */
+
 function updateSliderFill(slider) {
     if (!slider) return;
     const min = parseFloat(slider.min) || 0;
@@ -830,9 +1121,15 @@ function updateSliderFill(slider) {
     const value = parseFloat(slider.value) || 0;
     const percentage = ((value - min) / (max - min)) * 100;
 
-    // Gradient from active color (indigo) to transparent/muted
     slider.style.background = `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%, rgba(255, 255, 255, 0.1) 100%)`;
 }
 
-// Avvio iniziale
+
+/* ==========================================================================
+ *  12. AVVIO INIZIALE
+ *  --------------------------------------------------------------------------
+ *  Esegue il primo calcolo al caricamento della pagina,
+ *  usando i valori di default presenti nell'HTML.
+ * ========================================================================== */
+
 calculate();
