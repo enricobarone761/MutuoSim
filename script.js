@@ -16,6 +16,7 @@ const extraStartMonthInput = document.getElementById('extraStartMonth');
 const extraDurationInput = document.getElementById('extraDuration');
 const extraEffectSelect = document.getElementById('extraEffect');
 const roundUpAmountInput = document.getElementById('roundUpAmount');
+const roundUpAnnualIncreaseInput = document.getElementById('roundUpAnnualIncrease');
 const rateNumericInput = document.getElementById('rateNumeric');
 
 const outInitialPayment = document.getElementById('outInitialPayment');
@@ -37,6 +38,7 @@ extraStartMonthInput.addEventListener('input', calculate);
 extraDurationInput.addEventListener('input', calculate);
 extraEffectSelect.addEventListener('change', calculate);
 roundUpAmountInput.addEventListener('input', calculate);
+roundUpAnnualIncreaseInput.addEventListener('input', calculate);
 
 if (rateNumericInput) {
     rateNumericInput.addEventListener('input', function () {
@@ -187,6 +189,7 @@ function calculate() {
     const extraDurationYears = parseInt(extraDurationInput.value) || 0;
     const extraEffect = extraEffectSelect.value; // 'duration' o 'installment'
     const roundUpAmount = parseFloat(roundUpAmountInput.value) || 0;
+    const roundUpAnnualIncrease = parseFloat(roundUpAnnualIncreaseInput.value) || 0;
 
     if (P <= 0 || years <= 0) {
         resetOutputs();
@@ -224,6 +227,7 @@ function calculate() {
         extraDurationYears: 0,
         extraEffect: 'duration',
         roundUpAmount: 0,
+        roundUpAnnualIncrease: 0,
         generateChart: false
     });
 
@@ -241,6 +245,7 @@ function calculate() {
         extraDurationYears,
         extraEffect,
         roundUpAmount,
+        roundUpAnnualIncrease,
         generateChart: true
     });
 
@@ -248,7 +253,7 @@ function calculate() {
     const interestSaved = Math.max(0, baselineResults.totalInterestPaid - results.totalInterestPaid);
 
     let savedMonths = 0;
-    const hasExtras = (extraPayment > 0 && extraFreqMonths !== 0) || roundUpAmount > 0;
+    const hasExtras = (extraPayment > 0 && extraFreqMonths !== 0) || roundUpAmount > 0 || roundUpAnnualIncrease > 0;
 
     // Calcola mesi risparmiati rispetto alla durata totale prevista
     // Nota: confrontiamo con totalMonths perché è la durata contrattuale.
@@ -313,7 +318,7 @@ function calculate() {
         // Ripristina etichetta default se necessario, ma non critico
     }
 
-    updateChart(results.chartLabels, results.chartDataBalance, results.chartDataInterest, results.chartDataPayment, results.chartDataRate, results.historicalEndLabel);
+    updateChart(results.chartLabels, results.chartDataBalance, results.chartDataInterest, results.chartDataPayment, results.chartDataActualPayment, results.chartDataRate, results.historicalEndLabel);
 
     // Aggiorna tabella sensibilità
     updateSensitivityTable(P, years, baseRate);
@@ -333,6 +338,7 @@ function runSimulation(params) {
         extraDurationYears,
         extraEffect,
         roundUpAmount,
+        roundUpAnnualIncrease,
         generateChart
     } = params;
 
@@ -366,6 +372,7 @@ function runSimulation(params) {
     let chartDataBalance = [];
     let chartDataInterest = [];
     let chartDataPayment = [];
+    let chartDataActualPayment = [];
     let chartDataRate = [];
 
     // Simulazione mese per mese
@@ -443,8 +450,13 @@ function runSimulation(params) {
         // L'arrotondamento non può essere negativo: se roundUpAmount < currentRata, extra rimane 0
         // L'arrotondamento riduce SEMPRE la durata (non innesca ricalcolo rata)
         if (roundUpAmount > 0 && isInExtraPeriod) {
-            if (roundUpAmount > currentRata) {
-                const roundUpDiff = roundUpAmount - currentRata;
+            // Incremento annuo composto sull'importo target (ogni 12 mesi)
+            const yearsElapsed = Math.floor((m - 1) / 12);
+            const growthFactor = Math.pow(1 + roundUpAnnualIncrease / 100, yearsElapsed);
+            const effectiveRoundUpAmount = roundUpAmount * growthFactor;
+
+            if (effectiveRoundUpAmount > currentRata) {
+                const roundUpDiff = effectiveRoundUpAmount - currentRata;
                 const maxRoundUpExtra = Math.max(0, currentBalance - quotaCapitale - extraPeriodic);
                 extraRoundup = Math.min(roundUpDiff, maxRoundUpExtra);
             }
@@ -489,8 +501,10 @@ function runSimulation(params) {
                 chartLabels.push(label);
                 chartDataBalance.push(Math.max(0, currentBalance));
                 chartDataInterest.push(totalInterestPaid);
-                // Usa la rata teorica invece di quella effettiva per evitare lo spike finale
+                // Rata teorica (senza extra) per la linea base
                 chartDataPayment.push(currentRata);
+                // Versamento effettivo = rata pagata + extra versati (arrotondamento + periodici)
+                chartDataActualPayment.push(rataDaPagare + extra);
                 chartDataRate.push(currentAnnualRate); // Store rate
 
                 // Salva l'etichetta se siamo alla fine della storia reale (e non è la fine del mutuo)
@@ -517,6 +531,7 @@ function runSimulation(params) {
         chartDataBalance,
         chartDataInterest,
         chartDataPayment,
+        chartDataActualPayment,
         chartDataRate,
         historicalEndLabel
     };
@@ -531,7 +546,7 @@ function resetOutputs() {
 }
 
 // Configurazione Grafico
-function updateChart(labels, balanceData, interestData, paymentData, rateData, historicalEndLabel) {
+function updateChart(labels, balanceData, interestData, paymentData, actualPaymentData, rateData, historicalEndLabel) {
     const ctx = document.getElementById('mortgageChart').getContext('2d');
 
     if (myChart) myChart.destroy();
@@ -594,6 +609,19 @@ function updateChart(labels, balanceData, interestData, paymentData, rateData, h
                     pointRadius: 0,
                     pointHoverRadius: 4,
                     tension: 0.4,
+                    yAxisID: 'y_payment'
+                },
+                {
+                    label: 'Versamento Effettivo (€)',
+                    hidden: true,
+                    data: actualPaymentData,
+                    borderColor: '#f59e0b', // Amber 400
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 4],
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    tension: 0.3,
                     yAxisID: 'y_payment'
                 },
                 {
@@ -703,14 +731,23 @@ function updateChart(labels, balanceData, interestData, paymentData, rateData, h
                     display: true,
                     position: 'right',
                     grid: { display: false },
+                    // Impostiamo un range che lasci "aria" sopra le linee della rata
+                    suggestedMin: (() => {
+                        const minVal = Math.min(...paymentData, ...actualPaymentData.filter(v => v > 0), 500);
+                        return minVal * 0.9;
+                    })(),
+                    suggestedMax: (() => {
+                        const maxVal = Math.max(...paymentData, ...actualPaymentData, 500);
+                        return maxVal * 1.1;
+                    })(),
                     ticks: {
-                        callback: (val) => val.toFixed(0),
+                        callback: (val) => val.toFixed(0) + ' €',
                         color: '#60a5fa', // Blue 400
                         font: { size: 11 }
                     },
                     title: {
                         display: true,
-                        text: 'Rata',
+                        text: 'Importi Mensili',
                         color: '#60a5fa',
                         font: { size: 10, weight: 600 }
                     }
