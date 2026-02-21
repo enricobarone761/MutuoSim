@@ -425,31 +425,32 @@ function calculate() {
         const savedLabel = savedTimeBox.querySelector('.label');
         if (savedLabel) savedLabel.textContent = '📊 Analisi Estinzione';
 
-        // Costruisce il contenuto HTML con layout a griglia 2 colonne
-        let htmlContent = `<div style="margin-bottom: 8px; font-weight:600; font-size: 1.1em; color: var(--text-main);">${savedText} <span style="font-weight:400; font-size:0.9em; color:var(--text-muted);">in meno</span></div>`;
+        // Costruisce il contenuto HTML super compatto in linea
+        let htmlContent = `<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px;">`;
 
-        htmlContent += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; margin-top: 8px;">`;
+        // Titolo (Tempo risparmiato)
+        htmlContent += `<div style="font-weight:700; font-size: 1.5rem; color: #10b981; line-height: 1;">${savedText} <span style="font-weight:500; font-size:0.9rem; color:var(--text-muted);">in meno</span></div>`;
 
-        // Colonna sinistra: Extra Versato (arancione)
+        htmlContent += `<div style="display: flex; gap: 32px; align-items: flex-end;">`;
+
+        // Primo Blocco: Extra Versato (arancione)
         if (results.totalExtraPaid > 0) {
             htmlContent += `
-             <div style="text-align: right; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 15px;">
-                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block;">Extra Versato</span>
-                <span style="font-size: 1.1rem; font-weight: 700; color: #fb923c;">${fmtCurr(results.totalExtraPaid)}</span>
+             <div style="text-align: right; border-right: 1px solid rgba(255,255,255,0.1); padding-right: 32px;">
+                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block; margin-bottom: 6px; line-height: 1;">Extra Versato</span>
+                <span style="font-size: 1.25rem; font-weight: 700; color: #fb923c; line-height: 1;">${fmtCurr(results.totalExtraPaid)}</span>
              </div>`;
-        } else {
-            htmlContent += `<div></div>`; // Spacer se 0
         }
 
-        // Colonna destra: Interessi Risparmiati (verde)
+        // Secondo Blocco: Interessi Risparmiati (verde)
         htmlContent += `
-             <div style="text-align: left; padding-left: 5px;">
-                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block;">Interessi Risparmiati</span>
-                <span style="font-size: 1.1rem; font-weight: 700; color: #10b981;">${fmtCurr(interestSaved)}</span>
+             <div style="text-align: right;">
+                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); display: block; margin-bottom: 6px; line-height: 1;">Interessi Risparmiati</span>
+                <span style="font-size: 1.25rem; font-weight: 700; color: #10b981; line-height: 1;">${fmtCurr(interestSaved)}</span>
              </div>
         `;
 
-        htmlContent += `</div>`;
+        htmlContent += `</div></div>`;
 
         outSavedTime.innerHTML = htmlContent;
         savedTimeBox.style.display = 'block';
