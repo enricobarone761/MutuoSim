@@ -122,6 +122,9 @@
                     La differenza tra la rata calcolata e questo importo verrà applicata come estinzione parziale
                     mensile. L'importo target cresce ogni anno della percentuale indicata.
                 </small>
+                <div class="top-actions">
+                    <button id="openAmortizationBtn" class="btn btn-secondary">📊 Piano Ammortamento</button>
+                </div>
 
             </div>
         </div>
@@ -196,6 +199,31 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Amortization Drawer -->
+    <div id="amortizationDrawer" class="amortization-drawer">
+        <div class="drawer-header">
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Piano Rata per Rata</h3>
+            <button id="closeAmortizationBtn" class="btn"
+                style="background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; padding: 0;">✕</button>
+        </div>
+        <div class="drawer-content">
+            <table class="amortization-table" id="amortizationTable">
+                <thead>
+                    <tr>
+                        <th style="min-width: 40px; text-align: center;">Mese</th>
+                        <th style="text-align: right;">Rata</th>
+                        <th style="text-align: right;">Interessi</th>
+                        <th style="text-align: right;">Extra</th>
+                        <th style="text-align: right;">Totale</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
         </div>
     </div>
 

@@ -83,6 +83,11 @@ const outSavedTime = document.getElementById('outSavedTime');   // Div interno c
 const rataBox = document.getElementById('rataBox');              // Box cliccabile "Rata Mensile" che apre la tabella
 const rataSensitivityPanel = document.getElementById('rataSensitivityPanel'); // Pannello tabella sensibilità
 
+// --- Piano Ammortamento ---
+const openAmortizationBtn = document.getElementById('openAmortizationBtn');
+const closeAmortizationBtn = document.getElementById('closeAmortizationBtn');
+const amortizationDrawer = document.getElementById('amortizationDrawer');
+
 
 /* ==========================================================================
  *  2. EVENT LISTENERS
@@ -123,6 +128,16 @@ rataBox.addEventListener('click', function () {
     rataSensitivityPanel.style.display = isOpen ? 'none' : 'block';
     rataBox.classList.toggle('active', !isOpen);
 });
+
+// --- Toggle Piano Ammortamento ---
+if (openAmortizationBtn && closeAmortizationBtn && amortizationDrawer) {
+    openAmortizationBtn.addEventListener('click', () => {
+        amortizationDrawer.classList.add('open');
+    });
+    closeAmortizationBtn.addEventListener('click', () => {
+        amortizationDrawer.classList.remove('open');
+    });
+}
 
 // --- Toggle sezione tasso variabile manuale ---
 // Nota: variabile manuale ed Euribor sono mutuamente esclusivi
@@ -272,8 +287,8 @@ function addExtraPayment() {
     row.id = id;
 
     row.innerHTML = `
-        <button class="btn btn-remove btn-remove-extra" onclick="removeExtraPayment('${id}')" title="Rimuovi" style="position: absolute; top: 12px; right: 12px; width: 32px; height: 32px;">✕</button>
-        <div class="input-group" style="margin-bottom: 8px;">
+        <button class="btn btn-remove btn-remove-extra" onclick="removeExtraPayment('${id}')" title="Rimuovi" style="position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; line-height: 1;">✕</button>
+        <div class="input-group" style="margin-bottom: 8px; padding-right: 40px;">
             <label>Importo Extra (€)</label>
             <input type="number" class="extra-amount" value="1000" step="50">
         </div>
@@ -288,13 +303,13 @@ function addExtraPayment() {
                 <option value="1_monthly">Mensile</option>
             </select>
         </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end;">
             <div class="input-group" style="flex: 1; margin-bottom: 0;">
-                <label>Inizio Mese (0=Subito)</label>
+                <label>Inizio Mese <span style="font-weight: 400; font-size: 0.75rem;">(0=Subito)</span></label>
                 <input type="number" class="extra-start" value="0" step="1" min="0">
             </div>
             <div class="input-group" style="flex: 1; margin-bottom: 0;">
-                <label>Durata (Anni, 0=Sempre)</label>
+                <label>Durata <span style="font-weight: 400; font-size: 0.75rem;">(Anni, 0=Sempre)</span></label>
                 <input type="number" class="extra-duration" value="0" step="1" min="0">
             </div>
         </div>
@@ -539,6 +554,23 @@ function calculate() {
     // ── AGGIORNAMENTO GRAFICO ──
     updateChart(results.chartLabels, results.chartDataBalance, results.chartDataInterest, results.chartDataPayment, results.chartDataActualPayment, results.chartDataRate, results.historicalEndLabel);
 
+    // ── AGGIORNAMENTO PIANO AMMORTAMENTO ──
+    const tbody = document.querySelector('#amortizationTable tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        results.amortizationSchedule.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align: center; color: var(--text-muted);">${row.month}</td>
+                <td style="text-align: right;">${fmtCurr(row.payment)}</td>
+                <td style="text-align: right;">${fmtCurr(row.interest)}</td>
+                <td style="text-align: right; color: ${row.extra > 0 ? '#10b981' : (row.extra < 0 ? '#f43f5e' : 'inherit')};">${fmtCurr(row.extra)}</td>
+                <td style="text-align: right; font-weight: 600;">${fmtCurr(row.totalPaid)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
     // ── AGGIORNAMENTO TABELLA SENSIBILITÀ ──
     updateSensitivityTable(P, years, baseRate);
 }
@@ -634,6 +666,8 @@ function runSimulation(params) {
     let chartDataPayment = [];
     let chartDataActualPayment = [];
     let chartDataRate = [];
+
+    let amortizationSchedule = [];
 
     // ══════════════════════════════════════════════
     //  LOOP PRINCIPALE — un'iterazione per ogni mese
@@ -772,6 +806,15 @@ function runSimulation(params) {
             }
         }
 
+        // ── STEP 6.5: Salvataggio piano di ammortamento ──
+        amortizationSchedule.push({
+            month: m,
+            payment: rataDaPagare,
+            interest: quotaInteressi,
+            extra: extra,
+            totalPaid: rataDaPagare + extra
+        });
+
         // ── STEP 7: Campionamento dati per il grafico ──
         // Campionamento: mese 1, ogni 3 mesi, fine dati storici Euribor, ultimo mese
         if (generateChart) {
@@ -812,7 +855,8 @@ function runSimulation(params) {
         chartDataPayment,
         chartDataActualPayment,
         chartDataRate,
-        historicalEndLabel
+        historicalEndLabel,
+        amortizationSchedule
     };
 }
 
