@@ -60,13 +60,12 @@ const ratePeriodsContainer = document.getElementById('rate-periods-container'); 
 const addPeriodBtn = document.getElementById('addPeriodBtn');      // Bottone "aggiungi periodo"
 
 // --- Sezione estinzione parziale ---
-const extraAmountInput = document.getElementById('extraAmount');       // Importo extra (€)
-const extraFrequencySelect = document.getElementById('extraFrequency');   // Frequenza: mensile / trimestrale / annuale / una-tantum
-const extraStartMonthInput = document.getElementById('extraStartMonth');  // Mese di inizio (ritardo partenza)
-const extraDurationInput = document.getElementById('extraDuration');    // Durata pagamenti extra (anni, 0 = illimitato)
-const extraEffectSelect = document.getElementById('extraEffect');      // Effetto: 'duration' (riduce durata) o 'installment' (riduce rata)
+const extraPaymentsContainer = document.getElementById('extra-payments-container');
+const addExtraPaymentBtn = document.getElementById('addExtraPaymentBtn');
+let extraPaymentCounter = 0;
 
 // --- Sezione arrotondamento rata ---
+const roundUpStartMonthInput = document.getElementById('roundUpStartMonth');         // Mese di inizio arrotondamento
 const roundUpAmountInput = document.getElementById('roundUpAmount');         // Rata arrotondata target (€)
 const roundUpAnnualIncreaseInput = document.getElementById('roundUpAnnualIncrease'); // Incremento annuo (%) dell'arrotondamento
 
@@ -98,13 +97,12 @@ yearsInput.addEventListener('input', calculate);
 rateInput.addEventListener('input', calculate);
 
 // --- Estinzione parziale → ricalcolo ---
-extraAmountInput.addEventListener('input', calculate);
-extraFrequencySelect.addEventListener('change', calculate);
-extraStartMonthInput.addEventListener('input', calculate);
-extraDurationInput.addEventListener('input', calculate);
-extraEffectSelect.addEventListener('change', calculate);
+addExtraPaymentBtn.addEventListener('click', function () {
+    addExtraPayment();
+});
 
 // --- Arrotondamento rata → ricalcolo ---
+if (roundUpStartMonthInput) roundUpStartMonthInput.addEventListener('input', calculate);
 roundUpAmountInput.addEventListener('input', calculate);
 roundUpAnnualIncreaseInput.addEventListener('input', calculate);
 
@@ -262,6 +260,110 @@ function getRatePeriods() {
 }
 
 
+/**
+ * Aggiunge una nuova estinzione parziale al DOM.
+ */
+function addExtraPayment() {
+    extraPaymentCounter++;
+    const id = 'extra-pmt-' + extraPaymentCounter;
+
+    const row = document.createElement('div');
+    row.className = 'extra-payment-item';
+    row.id = id;
+
+    row.innerHTML = `
+        <button class="btn btn-remove btn-remove-extra" onclick="removeExtraPayment('${id}')" title="Rimuovi" style="position: absolute; top: 12px; right: 12px; width: 32px; height: 32px;">✕</button>
+        <div class="input-group" style="margin-bottom: 8px;">
+            <label>Importo Extra (€)</label>
+            <input type="number" class="extra-amount" value="1000" step="50">
+        </div>
+        <div class="input-group" style="margin-bottom: 8px;">
+            <label>Frequenza</label>
+            <select class="extra-frequency">
+                <option value="0">Mai</option>
+                <option value="1">Una Tantum (Inizio)</option>
+                <option value="12">Annuale</option>
+                <option value="6">Semestrale</option>
+                <option value="3">Trimestrale</option>
+                <option value="1_monthly">Mensile</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                <label>Inizio Mese (0=Subito)</label>
+                <input type="number" class="extra-start" value="0" step="1" min="0">
+            </div>
+            <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                <label>Durata (Anni, 0=Sempre)</label>
+                <input type="number" class="extra-duration" value="0" step="1" min="0">
+            </div>
+        </div>
+        <div class="input-group" style="margin-bottom: 0;">
+            <label>Effetto</label>
+            <select class="extra-effect">
+                <option value="duration">Riduci Durata</option>
+                <option value="installment">Riduci Rata</option>
+            </select>
+        </div>
+    `;
+
+    extraPaymentsContainer.appendChild(row);
+
+    // Ogni input rilancia il calcolo
+    row.querySelectorAll('input, select').forEach(input => {
+        input.addEventListener('input', calculate);
+        if (input.tagName === 'SELECT') {
+            input.addEventListener('change', calculate);
+        }
+    });
+
+    calculate();
+}
+
+/**
+ * Rimuove un'estinzione parziale dal DOM e ricalcola.
+ */
+function removeExtraPayment(id) {
+    const row = document.getElementById(id);
+    if (row) {
+        row.remove();
+        calculate();
+    }
+}
+
+/**
+ * Legge dal DOM tutte le estinzioni parziali attualmente definite.
+ */
+function getExtraPayments() {
+    const payments = [];
+    if (!extraPaymentsContainer) return payments;
+
+    const rows = extraPaymentsContainer.querySelectorAll('.extra-payment-item');
+
+    rows.forEach(row => {
+        const amount = parseFloat(row.querySelector('.extra-amount').value) || 0;
+        const freqVal = row.querySelector('.extra-frequency').value;
+        const start = parseInt(row.querySelector('.extra-start').value) || 0;
+        const duration = parseInt(row.querySelector('.extra-duration').value) || 0;
+        const effect = row.querySelector('.extra-effect').value;
+
+        let freqMonths = 0;
+        if (freqVal === '1_monthly') {
+            freqMonths = 1;
+        } else if (freqVal === '1') {
+            freqMonths = -1;
+        } else {
+            freqMonths = parseInt(freqVal) || 0;
+        }
+
+        if (amount > 0 && freqMonths !== 0) {
+            payments.push({ amount, freqMonths, start, duration, effect });
+        }
+    });
+
+    return payments;
+}
+
 /* ==========================================================================
  *  4. UTILITÀ DI FORMATTAZIONE
  * ========================================================================== */
@@ -312,13 +414,11 @@ function calculate() {
     updateSliderFill(rateInput);
 
     // --- Lettura input estinzione parziale ---
-    const extraPayment = parseFloat(extraAmountInput.value) || 0;        // Importo extra per pagamento
-    const extraFreqValue = extraFrequencySelect.value;                   // Codice frequenza (stringa)
-    const extraStartMonth = parseInt(extraStartMonthInput.value) || 0;   // Mese inizio (ritardo)
-    const extraDurationYears = parseInt(extraDurationInput.value) || 0;  // Durata extra (anni, 0 = illimitato)
-    const extraEffect = extraEffectSelect.value;                         // 'duration' (riduce durata) o 'installment' (riduce rata)
+    const extraPaymentsList = getExtraPayments();
 
     // --- Lettura input arrotondamento rata ---
+    let roundUpStartMonth = 0;
+    if (roundUpStartMonthInput) roundUpStartMonth = parseInt(roundUpStartMonthInput.value) || 0;
     const roundUpAmount = parseFloat(roundUpAmountInput.value) || 0;              // Rata target arrotondata
     const roundUpAnnualIncrease = parseFloat(roundUpAnnualIncreaseInput.value) || 0; // Incremento % annuo
 
@@ -335,22 +435,6 @@ function calculate() {
     // Configurazione Euribor (se il modulo euribor.js è caricato)
     const euriborConfig = (typeof getEuriborConfig === 'function') ? getEuriborConfig() : { active: false, rates: [] };
 
-    // --- Conversione codice frequenza → numero di mesi ---
-    // Valori possibili del <select>:
-    //   '1_monthly' → ogni mese (1)
-    //   '1'         → una tantum (-1, applicato solo una volta al primo mese utile)
-    //   '3'         → trimestrale
-    //   '6'         → semestrale
-    //   '12'        → annuale
-    let extraFreqMonths = 0;
-    if (extraFreqValue === '1_monthly') {
-        extraFreqMonths = 1;        // Ogni mese
-    } else if (extraFreqValue === '1') {
-        extraFreqMonths = -1;       // Una tantum (solo primo mese utile dopo l'inizio)
-    } else {
-        extraFreqMonths = parseInt(extraFreqValue) || 0;
-    }
-
     // ── SIMULAZIONE 1: Baseline (senza extra) ──
     // Serve per calcolare il risparmio di tempo e interessi rispetto al mutuo "puro".
     const baselineResults = runSimulation({
@@ -360,11 +444,8 @@ function calculate() {
         euriborConfig,
         ratePeriods,
         isVariable,
-        extraPayment: 0,
-        extraFreqMonths: 0,
-        extraStartMonth: 0,
-        extraDurationYears: 0,
-        extraEffect: 'duration',
+        extraPaymentsList: [],
+        roundUpStartMonth: 0,
         roundUpAmount: 0,
         roundUpAnnualIncrease: 0,
         generateChart: false   // Non servono dati per il grafico
@@ -379,11 +460,8 @@ function calculate() {
         euriborConfig,
         ratePeriods,
         isVariable,
-        extraPayment,
-        extraFreqMonths,
-        extraStartMonth,
-        extraDurationYears,
-        extraEffect,
+        extraPaymentsList,
+        roundUpStartMonth,
         roundUpAmount,
         roundUpAnnualIncrease,
         generateChart: true
@@ -393,7 +471,7 @@ function calculate() {
     const interestSaved = Math.max(0, baselineResults.totalInterestPaid - results.totalInterestPaid);
 
     let savedMonths = 0;
-    const hasExtras = (extraPayment > 0 && extraFreqMonths !== 0) || roundUpAmount > 0 || roundUpAnnualIncrease > 0;
+    const hasExtras = extraPaymentsList.length > 0 || roundUpAmount > 0 || roundUpAnnualIncrease > 0;
 
     // Mesi risparmiati: differenza tra durata contrattuale e durata effettiva
     if (hasExtras && results.actualMonths < totalMonths) {
@@ -486,11 +564,8 @@ function calculate() {
  *    @param {Object}  params.euriborConfig         - {active, rates[], historicalCount}
  *    @param {Array}   params.ratePeriods           - [{start, end, rate}] periodi variabili
  *    @param {boolean} params.isVariable            - true se tasso variabile manuale attivo
- *    @param {number}  params.extraPayment          - Importo singolo pagamento extra (€)
- *    @param {number}  params.extraFreqMonths       - Frequenza extra: 1=mensile, -1=una-tantum, N=ogni N mesi
- *    @param {number}  params.extraStartMonth       - Mese dopo il quale iniziano gli extra
- *    @param {number}  params.extraDurationYears    - Durata degli extra (anni), 0=illimitato
- *    @param {string}  params.extraEffect           - 'duration' (riduce durata) o 'installment' (riduce rata)
+ *    @param {Array}   params.extraPaymentsList     - [{amount, freqMonths, start, duration, effect}]
+ *    @param {number}  params.roundUpStartMonth     - Mese inizio dell'arrotondamento
  *    @param {number}  params.roundUpAmount         - Rata target per arrotondamento (€)
  *    @param {number}  params.roundUpAnnualIncrease - Incremento annuo (%) dell'arrotondamento
  *    @param {boolean} params.generateChart         - true per generare i dati del grafico
@@ -518,11 +593,8 @@ function runSimulation(params) {
         euriborConfig,
         ratePeriods,
         isVariable,
-        extraPayment,
-        extraFreqMonths,
-        extraStartMonth,
-        extraDurationYears,
-        extraEffect,
+        extraPaymentsList,
+        roundUpStartMonth,
         roundUpAmount,
         roundUpAnnualIncrease,
         generateChart
@@ -614,31 +686,36 @@ function runSimulation(params) {
 
         // ── STEP 4: Gestione estinzione parziale ──
         // Due componenti indipendenti:
-        //   • extraPeriodic: pagamento extra definito dall'utente (soggetto a effetto duration/installment)
+        //   • extraPeriodic: pagamento extra corrente utente (soggetto a effetto duration/installment)
         //   • extraRoundup:  differenza tra rata arrotondata e rata corrente (riduce SEMPRE la durata)
         let extraPeriodic = 0;
         let extraRoundup = 0;
-        let applyExtra = false;
+        let hasInstallmentEffectExtra = false;
 
-        // Verifica se il mese corrente è nel periodo valido per gli extra
-        // (considerando il mese di inizio e la durata specificata dall'utente)
-        const isInExtraPeriod = (m > extraStartMonth) && (extraDurationYears === 0 || m <= extraStartMonth + (extraDurationYears * 12));
+        // ── Extra periodici (lista) ──
+        for (let ep of extraPaymentsList) {
+            const isInExtraPeriod = (m > ep.start) && (ep.duration === 0 || m <= ep.start + (ep.duration * 12));
+            if (isInExtraPeriod) {
+                let applyExtra = false;
+                if (ep.freqMonths === -1 && m === ep.start + 1) {
+                    applyExtra = true;  // Una tantum: solo il primo mese utile dopo l'inizio
+                } else if (ep.freqMonths === 1) {
+                    applyExtra = true;  // Mensile: ogni mese
+                } else if (ep.freqMonths > 1) {
+                    // Periodico: ogni N mesi a partire dal mese di inizio
+                    if ((m - ep.start) % ep.freqMonths === 0) applyExtra = true;
+                }
 
-        // ── Extra periodici (importo fisso con frequenza specifica) ──
-        if (extraPayment > 0 && extraFreqMonths !== 0 && isInExtraPeriod) {
-            if (extraFreqMonths === -1 && m === extraStartMonth + 1) {
-                applyExtra = true;  // Una tantum: solo il primo mese utile dopo l'inizio
-            } else if (extraFreqMonths === 1) {
-                applyExtra = true;  // Mensile: ogni mese
-            } else if (extraFreqMonths > 1) {
-                // Periodico: ogni N mesi a partire dal mese di inizio
-                if ((m - extraStartMonth) % extraFreqMonths === 0) applyExtra = true;
-            }
+                if (applyExtra) {
+                    // L'extra non può eccedere il debito residuo dopo il capitale ordinario
+                    let epAmount = Math.min(ep.amount, currentBalance - quotaCapitale - extraPeriodic);
+                    if (epAmount < 0) epAmount = 0;
+                    extraPeriodic += epAmount;
 
-            if (applyExtra) {
-                // L'extra non può eccedere il debito residuo dopo il capitale ordinario
-                extraPeriodic = Math.min(extraPayment, currentBalance - quotaCapitale);
-                if (extraPeriodic < 0) extraPeriodic = 0;
+                    if (epAmount > 0 && ep.effect === 'installment') {
+                        hasInstallmentEffectExtra = true;
+                    }
+                }
             }
         }
 
@@ -646,9 +723,13 @@ function runSimulation(params) {
         // Se la rata target arrotondata è superiore alla rata corrente, la differenza
         // diventa un extra che riduce il capitale (e quindi la durata).
         // L'importo target cresce annualmente con il tasso di incremento composto.
-        if (roundUpAmount > 0 && isInExtraPeriod) {
-            const yearsElapsed = Math.floor((m - 1) / 12);
-            const growthFactor = Math.pow(1 + roundUpAnnualIncrease / 100, yearsElapsed);
+        const isInRoundUpPeriod = (m > roundUpStartMonth);
+        if (roundUpAmount > 0 && isInRoundUpPeriod) {
+            const yearsElapsed = Math.floor((m - 1 - roundUpStartMonth) / 12);
+            let growthFactor = 1;
+            if (yearsElapsed > 0) {
+                growthFactor = Math.pow(1 + roundUpAnnualIncrease / 100, yearsElapsed);
+            }
             const effectiveRoundUpAmount = roundUpAmount * growthFactor;
 
             if (effectiveRoundUpAmount > currentRata) {
@@ -680,7 +761,7 @@ function runSimulation(params) {
         // ── STEP 6: Ricalcolo rata dopo extra periodico in modalità 'installment' ──
         // In modalità 'installment', gli extra periodici riducono la rata futura
         // (anziché la durata). L'arrotondamento NON innesca questo ricalcolo.
-        if (extraPeriodic > 0 && extraEffect === 'installment' && currentBalance > 0.01) {
+        if (hasInstallmentEffectExtra && currentBalance > 0.01) {
             let remainingMonths = totalMonths - m;
             if (remainingMonths > 0) {
                 if (monthlyRate === 0) {

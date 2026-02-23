@@ -99,44 +99,16 @@
                 <hr>
 
                 <h3>Estinzioni Parziali</h3>
-                <div class="input-group">
-                    <label>Importo Extra (€)</label>
-                    <input type="number" id="extraAmount" value="0" step="50">
-                </div>
-
-                <div class="input-group">
-                    <label>Frequenza</label>
-                    <select id="extraFrequency">
-                        <option value="0">Mai</option>
-                        <option value="1">Una Tantum (Inizio)</option>
-                        <option value="12">Annuale</option>
-                        <option value="6">Semestrale</option>
-                        <option value="3">Trimestrale</option>
-                        <option value="1_monthly">Mensile</option>
-                    </select>
-                </div>
-
-                <div class="input-group">
-                    <label>Mese di Inizio Extra (0=Subito)</label>
-                    <input type="number" id="extraStartMonth" value="0" step="1" min="0">
-                </div>
-
-                <div class="input-group">
-                    <label>Durata Extra (Anni, 0=Sempre)</label>
-                    <input type="number" id="extraDuration" value="0" step="1" min="0">
-                </div>
-
-                <div class="input-group">
-                    <label>Effetto</label>
-                    <select id="extraEffect">
-                        <option value="duration">Riduci Durata</option>
-                        <option value="installment">Riduci Rata</option>
-                    </select>
-                </div>
+                <div id="extra-payments-container"></div>
+                <button class="btn btn-add" id="addExtraPaymentBtn">+ Estinzione Parziale</button>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
 
                 <h3>Arrotondamento Rata</h3>
+                <div class="input-group">
+                    <label>Mese di Inizio (0=Subito)</label>
+                    <input type="number" id="roundUpStartMonth" value="0" step="1" min="0">
+                </div>
                 <div class="input-group">
                     <label>Arrotonda Rata a (€, 0=Disattivo)</label>
                     <input type="number" id="roundUpAmount" value="0" step="10" min="0">
