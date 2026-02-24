@@ -649,14 +649,15 @@ function runSimulation(params) {
     }
 
     // --- Stato della simulazione ---
-    let currentBalance = P;              // Debito residuo corrente
+    let currentBalance = P;              // Debito residuo reale (per calcolo interessi)
+    let rataBalance = P;                 // Debito virtuale (per calcolo rata)
     let totalInterestPaid = 0;           // Accumulatore interessi pagati
     let totalExtraPaid = 0;              // Accumulatore pagamenti extra (periodici + arrotondamento)
     let firstRata = initialRata;         // Rata del primo mese (salvata per output)
     let maxRataSeen = 0;                 // Rata massima osservata (solo rata standard, senza extra)
     let currentRata = initialRata;       // Rata corrente — cambia con tasso variabile o effetto 'installment'
-    let prevAnnualRate = firstRate;       // Tasso del mese precedente (per rilevare cambiamenti)
-    let historicalEndLabel = null;        // Etichetta del punto di fine dati storici Euribor
+    let prevAnnualRate = firstRate;      // Tasso del mese precedente (per rilevare cambiamenti)
+    let historicalEndLabel = null;       // Etichetta del punto di fine dati storici Euribor
     let actualMonths = totalMonths;      // Mesi effettivi (decresce se mutuo chiuso prima)
 
     // --- Array per il grafico (popolati solo se generateChart = true) ---
@@ -692,20 +693,20 @@ function runSimulation(params) {
         let monthlyRate = Math.max(0, currentAnnualRate / 100 / 12);
 
         // ── Se il tasso è cambiato rispetto al mese precedente,
-        //    ricalcola la rata sul debito residuo con i mesi rimanenti ──
+        //    ricalcola la rata sul debito virtuale con i mesi rimanenti ──
         if (currentAnnualRate !== prevAnnualRate) {
             let remainingMonths = totalMonths - (m - 1);
-            if (remainingMonths > 0 && currentBalance > 0.01) {
+            if (remainingMonths > 0 && rataBalance > 0.01) {
                 if (monthlyRate === 0) {
-                    currentRata = currentBalance / remainingMonths;
+                    currentRata = rataBalance / remainingMonths;
                 } else {
-                    currentRata = (currentBalance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -remainingMonths));
+                    currentRata = (rataBalance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -remainingMonths));
                 }
             }
             prevAnnualRate = currentAnnualRate;
         }
 
-        // ── STEP 2: Calcolo interessi del mese ──
+        // ── STEP 2: Calcolo interessi del mese (sul saldo REALE) ──
         let quotaInteressi = currentBalance * monthlyRate;
 
         // ── STEP 3: Determinazione rata da pagare ──
@@ -719,44 +720,41 @@ function runSimulation(params) {
         let quotaCapitale = rataDaPagare - quotaInteressi;
 
         // ── STEP 4: Gestione estinzione parziale ──
-        // Due componenti indipendenti:
-        //   • extraPeriodic: pagamento extra corrente utente (soggetto a effetto duration/installment)
-        //   • extraRoundup:  differenza tra rata arrotondata e rata corrente (riduce SEMPRE la durata)
         let extraPeriodic = 0;
         let extraRoundup = 0;
         let hasInstallmentEffectExtra = false;
 
         // ── Extra periodici (lista) ──
         for (let ep of extraPaymentsList) {
-            const isInExtraPeriod = (m > ep.start) && (ep.duration === 0 || m <= ep.start + (ep.duration * 12));
+            // startMonth: se l'utente mette 0 ("Subito") parte da mese 1; altrimenti parte esattamente dal mese indicato
+            const startMonth = Math.max(1, ep.start);
+            const isInExtraPeriod = (m >= startMonth) && (ep.duration === 0 || m <= ep.start + (ep.duration * 12));
             if (isInExtraPeriod) {
                 let applyExtra = false;
-                if (ep.freqMonths === -1 && m === ep.start + 1) {
-                    applyExtra = true;  // Una tantum: solo il primo mese utile dopo l'inizio
+                if (ep.freqMonths === -1 && m === Math.max(1, ep.start)) {
+                    applyExtra = true;  // Una tantum 
                 } else if (ep.freqMonths === 1) {
-                    applyExtra = true;  // Mensile: ogni mese
+                    applyExtra = true;  // Mensile
                 } else if (ep.freqMonths > 1) {
-                    // Periodico: ogni N mesi a partire dal mese di inizio
-                    if ((m - ep.start) % ep.freqMonths === 0) applyExtra = true;
+                    // Periodico
+                    if ((m - startMonth) % ep.freqMonths === 0) applyExtra = true;
                 }
 
                 if (applyExtra) {
-                    // L'extra non può eccedere il debito residuo dopo il capitale ordinario
                     let epAmount = Math.min(ep.amount, currentBalance - quotaCapitale - extraPeriodic);
                     if (epAmount < 0) epAmount = 0;
                     extraPeriodic += epAmount;
 
                     if (epAmount > 0 && ep.effect === 'installment') {
+                        // Riduce anche il saldo virtuale della rata
+                        rataBalance -= epAmount;
                         hasInstallmentEffectExtra = true;
                     }
                 }
             }
         }
 
-        // ── Arrotondamento rata (sempre attivo nel periodo, riduce solo la durata) ──
-        // Se la rata target arrotondata è superiore alla rata corrente, la differenza
-        // diventa un extra che riduce il capitale (e quindi la durata).
-        // L'importo target cresce annualmente con il tasso di incremento composto.
+        // ── Arrotondamento rata (riduce solo il saldo reale, non influisce mai sulla rata futura) ──
         const isInRoundUpPeriod = (m > roundUpStartMonth);
         if (roundUpAmount > 0 && isInRoundUpPeriod) {
             const yearsElapsed = Math.floor((m - 1 - roundUpStartMonth) / 12);
@@ -768,7 +766,6 @@ function runSimulation(params) {
 
             if (effectiveRoundUpAmount > currentRata) {
                 const roundUpDiff = effectiveRoundUpAmount - currentRata;
-                // L'extra arrotondamento non può superare il debito residuo meno capitale ordinario e extra periodico
                 const maxRoundUpExtra = Math.max(0, currentBalance - quotaCapitale - extraPeriodic);
                 extraRoundup = Math.min(roundUpDiff, maxRoundUpExtra);
             }
@@ -781,7 +778,9 @@ function runSimulation(params) {
         totalInterestPaid += quotaInteressi;
         let capitalePagato = quotaCapitale + extra;
 
-        // Se il capitale pagato copre tutto il debito, chiudi
+        // Il capitale ordinario riduce sempre entrambi i saldi
+        rataBalance -= quotaCapitale;
+
         if (capitalePagato >= currentBalance) {
             capitalePagato = currentBalance;
             currentBalance = 0;
@@ -789,22 +788,20 @@ function runSimulation(params) {
             currentBalance -= capitalePagato;
         }
 
-        // Traccia la rata massima (solo rata standard, senza extra)
         if (rataDaPagare > maxRataSeen) maxRataSeen = rataDaPagare;
 
-        // ── STEP 6: Ricalcolo rata dopo extra periodico in modalità 'installment' ──
-        // In modalità 'installment', gli extra periodici riducono la rata futura
-        // (anziché la durata). L'arrotondamento NON innesca questo ricalcolo.
+        // ── STEP 6: Ricalcolo rata per effetto 'installment' ──
         if (hasInstallmentEffectExtra && currentBalance > 0.01) {
             let remainingMonths = totalMonths - m;
             if (remainingMonths > 0) {
                 if (monthlyRate === 0) {
-                    currentRata = currentBalance / remainingMonths;
+                    currentRata = rataBalance / remainingMonths;
                 } else {
-                    currentRata = (currentBalance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -remainingMonths));
+                    currentRata = (rataBalance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -remainingMonths));
                 }
             }
         }
+
 
         // ── STEP 6.5: Salvataggio piano di ammortamento ──
         amortizationSchedule.push({
@@ -1033,6 +1030,34 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
                             // Nasconde "Tasso %" dalla legenda (è solo per il tooltip)
                             return !item.text.includes('Tasso');
                         }
+                    },
+                    onClick: function (evt, legendItem, legend) {
+                        // Comportamento default: toggle visibilità del dataset
+                        Chart.defaults.plugins.legend.onClick(evt, legendItem, legend);
+
+                        const chart = legend.chart;
+                        // Dataset sull'asse y_payment: [1] Rata Mensile, [2] Versamento Effettivo
+                        const paymentDatasetIndices = [1, 2];
+
+                        // Raccoglie tutti i valori > 0 dai dataset visibili su y_payment
+                        const visibleValues = [];
+                        for (const idx of paymentDatasetIndices) {
+                            if (!chart.getDatasetMeta(idx).hidden) {
+                                chart.data.datasets[idx].data.forEach(v => { if (v > 0) visibleValues.push(v); });
+                            }
+                        }
+
+                        if (visibleValues.length > 0) {
+                            const minVal = Math.min(...visibleValues);
+                            const maxVal = Math.max(...visibleValues);
+                            chart.options.scales.y_payment.suggestedMin = minVal * 0.9;
+                            chart.options.scales.y_payment.suggestedMax = maxVal * 1.1;
+                        } else {
+                            // Nessun dataset visibile: range neutro
+                            chart.options.scales.y_payment.suggestedMin = 0;
+                            chart.options.scales.y_payment.suggestedMax = 5000;
+                        }
+                        chart.update();
                     }
                 },
                 annotation: {
