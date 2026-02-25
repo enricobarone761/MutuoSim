@@ -64,6 +64,11 @@ const extraPaymentsContainer = document.getElementById('extra-payments-container
 const addExtraPaymentBtn = document.getElementById('addExtraPaymentBtn');
 let extraPaymentCounter = 0;
 
+// --- Sezione aggiunta capitale ---
+const capitalAdditionsContainer = document.getElementById('capital-additions-container');
+const addCapitalAdditionBtn = document.getElementById('addCapitalAdditionBtn');
+let capitalAdditionCounter = 0;
+
 // --- Sezione arrotondamento rata ---
 const roundUpStartMonthInput = document.getElementById('roundUpStartMonth');         // Mese di inizio arrotondamento
 const roundUpAmountInput = document.getElementById('roundUpAmount');         // Rata arrotondata target (€)
@@ -105,6 +110,13 @@ rateInput.addEventListener('input', calculate);
 addExtraPaymentBtn.addEventListener('click', function () {
     addExtraPayment();
 });
+
+// --- Aggiunta capitale → ricalcolo ---
+if (addCapitalAdditionBtn) {
+    addCapitalAdditionBtn.addEventListener('click', function () {
+        addCapitalAddition();
+    });
+}
 
 // --- Arrotondamento rata → ricalcolo ---
 if (roundUpStartMonthInput) roundUpStartMonthInput.addEventListener('input', calculate);
@@ -379,6 +391,78 @@ function getExtraPayments() {
     return payments;
 }
 
+/**
+ * Aggiunge una nuova aggiunta di capitale al DOM.
+ */
+function addCapitalAddition() {
+    capitalAdditionCounter++;
+    const id = 'capital-add-' + capitalAdditionCounter;
+
+    const row = document.createElement('div');
+    row.className = 'extra-payment-item';
+    row.id = id;
+    row.style.padding = '8px 12px';
+    row.style.marginBottom = '8px';
+    row.style.background = 'rgba(16, 185, 129, 0.03)';
+    row.style.border = '1px solid rgba(16, 185, 129, 0.1)';
+
+    row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="flex: 2;">
+                <label style="font-size: 0.7rem; margin-bottom: 2px; color: var(--text-muted);">+ Capitale (€)</label>
+                <input type="number" class="capital-amount" value="10000" step="1000" style="padding: 4px 8px; font-size: 0.85rem;">
+            </div>
+            <div style="flex: 1.2;">
+                <label style="font-size: 0.7rem; margin-bottom: 2px; color: var(--text-muted);">Mese</label>
+                <input type="number" class="capital-start" value="12" step="1" min="1" style="padding: 4px 8px; font-size: 0.85rem;">
+            </div>
+            <button class="btn-remove" onclick="removeCapitalAddition('${id}')" title="Rimuovi" 
+                    style="background: transparent; border: none; color: #f43f5e; cursor: pointer; padding: 4px; font-size: 1rem; margin-top: 14px;">✕</button>
+        </div>
+    `;
+
+    capitalAdditionsContainer.appendChild(row);
+
+    row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    calculate();
+}
+
+/**
+ * Rimuove un'aggiunta di capitale dal DOM e ricalcola.
+ */
+function removeCapitalAddition(id) {
+    const row = document.getElementById(id);
+    if (row) {
+        row.remove();
+        calculate();
+    }
+}
+
+/**
+ * Legge dal DOM tutte le aggiunte di capitale attualmente definite.
+ */
+function getCapitalAdditions() {
+    const additions = [];
+    if (!capitalAdditionsContainer) return additions;
+
+    const rows = capitalAdditionsContainer.querySelectorAll('.extra-payment-item');
+
+    rows.forEach(row => {
+        const amount = parseFloat(row.querySelector('.capital-amount').value) || 0;
+        const start = parseInt(row.querySelector('.capital-start').value) || 0;
+
+        if (amount > 0 && start > 0) {
+            additions.push({ amount, start });
+        }
+    });
+
+    return additions;
+}
+
+
 /* ==========================================================================
  *  4. UTILITÀ DI FORMATTAZIONE
  * ========================================================================== */
@@ -431,6 +515,9 @@ function calculate() {
     // --- Lettura input estinzione parziale ---
     const extraPaymentsList = getExtraPayments();
 
+    // --- Lettura input aggiunte capitale ---
+    const capitalAdditionsList = getCapitalAdditions();
+
     // --- Lettura input arrotondamento rata ---
     let roundUpStartMonth = 0;
     if (roundUpStartMonthInput) roundUpStartMonth = parseInt(roundUpStartMonthInput.value) || 0;
@@ -460,6 +547,7 @@ function calculate() {
         ratePeriods,
         isVariable,
         extraPaymentsList: [],
+        capitalAdditionsList,
         roundUpStartMonth: 0,
         roundUpAmount: 0,
         roundUpAnnualIncrease: 0,
@@ -476,6 +564,7 @@ function calculate() {
         ratePeriods,
         isVariable,
         extraPaymentsList,
+        capitalAdditionsList,
         roundUpStartMonth,
         roundUpAmount,
         roundUpAnnualIncrease,
@@ -626,6 +715,7 @@ function runSimulation(params) {
         ratePeriods,
         isVariable,
         extraPaymentsList,
+        capitalAdditionsList = [],
         roundUpStartMonth,
         roundUpAmount,
         roundUpAnnualIncrease,
@@ -706,6 +796,33 @@ function runSimulation(params) {
             prevAnnualRate = currentAnnualRate;
         }
 
+        // ── STEP 1.5: Aggiunta capitale (Ristrutturazione) ──
+        let hasCapitalAddition = false;
+        let capitalAddedThisMonth = 0;
+
+        if (capitalAdditionsList && capitalAdditionsList.length > 0) {
+            for (let ca of capitalAdditionsList) {
+                if (m === ca.start) {
+                    capitalAddedThisMonth += ca.amount;
+                    hasCapitalAddition = true;
+                }
+            }
+        }
+
+        if (hasCapitalAddition) {
+            currentBalance += capitalAddedThisMonth;
+            rataBalance += capitalAddedThisMonth;
+
+            let remainingMonths = totalMonths - (m - 1);
+            if (remainingMonths > 0 && rataBalance > 0.01) {
+                if (monthlyRate === 0) {
+                    currentRata = rataBalance / remainingMonths;
+                } else {
+                    currentRata = (rataBalance * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -remainingMonths));
+                }
+            }
+        }
+
         // ── STEP 2: Calcolo interessi del mese (sul saldo REALE) ──
         let quotaInteressi = currentBalance * monthlyRate;
 
@@ -715,6 +832,10 @@ function runSimulation(params) {
         // Se il saldo + interessi è inferiore alla rata, chiudi il mutuo con l'ultimo pagamento
         if (currentBalance + quotaInteressi <= rataDaPagare) {
             rataDaPagare = currentBalance + quotaInteressi;
+        }
+
+        if (m === 1) {
+            firstRata = rataDaPagare; // Rata effettiva nel mese 1 (considera eventuali variazioni o capitale aggiunto al mese 1)
         }
 
         let quotaCapitale = rataDaPagare - quotaInteressi;
@@ -809,6 +930,7 @@ function runSimulation(params) {
             payment: rataDaPagare,
             interest: quotaInteressi,
             extra: extra,
+            capitalAddition: capitalAddedThisMonth,
             totalPaid: rataDaPagare + extra
         });
 
