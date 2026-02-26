@@ -14,8 +14,8 @@ ECB_URLS = {
     "3M": "https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA?format=jsondata&startPeriod=1999-01",
 }
 
-OUTPUT_JSON = "euribor_data.json"
-OUTPUT_JS = "euribor_data.js"
+OUTPUT_JSON = "../data/euribor_data.json"
+OUTPUT_JS = "../js/data/euribor_data.js"
 
 
 def fetch_ecb_series(url: str) -> dict[str, float]:

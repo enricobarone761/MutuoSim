@@ -31,9 +31,9 @@ Per aggiornare i dati:
 1. Assicurati di avere Python installato.
 2. Esegui lo script:
    ```bash
-   python update_euribor.py
+   python scripts/update_euribor.py
    ```
-Lo script genererà/aggiornerà i file `euribor_data.json` e `euribor_data.js` utilizzati dall'applicazione.
+Lo script aggiornerà i dati nelle cartelle `data/` e `js/data/` utilizzati dall'applicazione.
 
 ---
 *MutuoSim è uno strumento di simulazione non vincolante. Verifica sempre le condizioni contrattuali con la tua banca.*
