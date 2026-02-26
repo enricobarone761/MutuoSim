@@ -406,8 +406,87 @@ select:focus {
 .chart-container {
     position: relative;
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
 }
+
+/* Range Selector Styles */
+.range-selector-container {
+    margin-top: 20px;
+    padding: 0 10px;
+    position: relative;
+    height: 40px;
+}
+
+.range-slider-wrapper {
+    position: relative;
+    height: 6px;
+    background: var(--bg-input);
+    border-radius: 3px;
+    margin-bottom: 24px;
+}
+
+.range-slider-track {
+    position: absolute;
+    height: 100%;
+    background: var(--accent-blue);
+    border-radius: 3px;
+    z-index: 1;
+}
+
+.range-slider-input {
+    position: absolute;
+    width: 100%;
+    height: 6px;
+    top: 0;
+    margin: 0;
+    background: none;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+    z-index: 2;
+    left: 0;
+}
+
+.range-slider-input::-webkit-slider-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent-blue);
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-appearance: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.range-slider-input::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent-blue);
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.range-label-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.range-label-container span {
+    background: var(--bg-card);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
 
 /* Rate Period Row (Modalità Variabile Manuale) */
 .rate-period-row {

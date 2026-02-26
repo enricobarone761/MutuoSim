@@ -204,7 +204,22 @@
                     <div class="chart-container">
                         <canvas id="mortgageChart"></canvas>
                     </div>
+                    <!-- Range Selector for Chart -->
+                    <div class="range-selector-container">
+                        <div class="range-slider-wrapper">
+                            <div id="rangeTrack" class="range-slider-track"></div>
+                            <input type="range" id="chartRangeMin" class="range-slider-input" min="1" max="360"
+                                value="1">
+                            <input type="range" id="chartRangeMax" class="range-slider-input" min="1" max="360"
+                                value="360">
+                        </div>
+                        <div class="range-label-container">
+                            <span id="rangeLabelStart">Inizio: Mese 1</span>
+                            <span id="rangeLabelEnd">Fine: Mese 360</span>
+                        </div>
+                    </div>
                 </div>
+
             </div>
         </div>
     </div>

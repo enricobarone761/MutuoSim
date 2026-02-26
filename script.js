@@ -93,6 +93,16 @@ const openAmortizationBtn = document.getElementById('openAmortizationBtn');
 const closeAmortizationBtn = document.getElementById('closeAmortizationBtn');
 const amortizationDrawer = document.getElementById('amortizationDrawer');
 
+// --- Selettore Intervallo Grafico ---
+const chartRangeMin = document.getElementById('chartRangeMin');
+const chartRangeMax = document.getElementById('chartRangeMax');
+const rangeTrack = document.getElementById('rangeTrack');
+const rangeLabelStart = document.getElementById('rangeLabelStart');
+const rangeLabelEnd = document.getElementById('rangeLabelEnd');
+
+// Variabile per memorizzare i risultati completi dell'ultima simulazione
+let lastFullResults = null;
+
 
 /* ==========================================================================
  *  2. EVENT LISTENERS
@@ -201,6 +211,67 @@ euriborTenorSelect.addEventListener('change', function () {
 
 euriborStartInput.addEventListener('change', calculate);
 euriborSpreadInput.addEventListener('input', calculate);
+
+// --- Event Listeners Selettore Intervallo ---
+if (chartRangeMin && chartRangeMax) {
+    chartRangeMin.addEventListener('input', handleRangeChange);
+    chartRangeMax.addEventListener('input', handleRangeChange);
+}
+
+/**
+ * Gestisce il cambio dell'intervallo del grafico.
+ * Impedisce la sovrapposizione dei cursori e aggiorna la visualizzazione.
+ */
+function handleRangeChange() {
+    let min = parseInt(chartRangeMin.value);
+    let max = parseInt(chartRangeMax.value);
+
+    // Impedisci che il min superi il max
+    if (min > max - 6) {
+        if (this === chartRangeMin) {
+            chartRangeMin.value = max - 6;
+            min = max - 6;
+        } else {
+            chartRangeMax.value = min + 6;
+            max = min + 6;
+        }
+    }
+
+    updateRangeUI();
+
+    // Se abbiamo i risultati dell'ultima simulazione, aggiorniamo solo il grafico
+    if (lastFullResults) {
+        updateChart(
+            lastFullResults.fullLabels,
+            lastFullResults.fullDataBalance,
+            lastFullResults.fullDataInterest,
+            lastFullResults.fullDataPayment,
+            lastFullResults.fullDataActualPayment,
+            lastFullResults.fullDataRate,
+            lastFullResults.historicalEndMonth,
+            false // Disabilita animazione durante lo zoom/range
+        );
+    }
+}
+
+/**
+ * Aggiorna lo stile visivo (barra colorata) e le etichette del selettore d'intervallo.
+ */
+function updateRangeUI() {
+    const min = parseInt(chartRangeMin.value);
+    const max = parseInt(chartRangeMax.value);
+    const total = parseInt(chartRangeMax.max);
+
+    const left = ((min - 1) / (total - 1)) * 100;
+    const right = ((max - 1) / (total - 1)) * 100;
+
+    rangeTrack.style.left = left + '%';
+    rangeTrack.style.width = (right - left) + '%';
+
+    rangeLabelStart.textContent = `Inizio: Mese ${min}`;
+    rangeLabelEnd.textContent = `Fine: Mese ${max}`;
+}
+
 
 
 /* ==========================================================================
@@ -582,6 +653,19 @@ function calculate() {
         savedMonths = totalMonths - results.actualMonths;
     }
 
+    // Salva i risultati per aggiornamenti rapidi del grafico (zoom/range)
+    lastFullResults = results;
+
+    // Aggiorna il range massimo dei cursori in base alla durata effettiva
+    const maxMonths = results.actualMonths;
+    chartRangeMin.max = maxMonths;
+    chartRangeMax.max = maxMonths;
+    if (parseInt(chartRangeMax.value) > maxMonths || parseInt(chartRangeMax.value) === parseInt(chartRangeMax.oldMax || 0)) {
+        chartRangeMax.value = maxMonths;
+    }
+    chartRangeMax.oldMax = maxMonths;
+    updateRangeUI();
+
     // ── AGGIORNAMENTO OUTPUT NUMERICI ──
     outInitialPayment.innerText = fmtCurr(results.firstRata);
     outMaxPayment.innerText = fmtCurr(results.maxRataSeen);
@@ -640,8 +724,17 @@ function calculate() {
         savedTimeBox.style.display = 'none';
     }
 
+
     // ── AGGIORNAMENTO GRAFICO ──
-    updateChart(results.chartLabels, results.chartDataBalance, results.chartDataInterest, results.chartDataPayment, results.chartDataActualPayment, results.chartDataRate, results.historicalEndLabel);
+    updateChart(
+        results.fullLabels,
+        results.fullDataBalance,
+        results.fullDataInterest,
+        results.fullDataPayment,
+        results.fullDataActualPayment,
+        results.fullDataRate,
+        results.historicalEndMonth
+    );
 
     // ── AGGIORNAMENTO PIANO AMMORTAMENTO ──
     const tbody = document.querySelector('#amortizationTable tbody');
@@ -751,12 +844,14 @@ function runSimulation(params) {
     let actualMonths = totalMonths;      // Mesi effettivi (decresce se mutuo chiuso prima)
 
     // --- Array per il grafico (popolati solo se generateChart = true) ---
-    let chartLabels = [];
-    let chartDataBalance = [];
-    let chartDataInterest = [];
-    let chartDataPayment = [];
-    let chartDataActualPayment = [];
-    let chartDataRate = [];
+    let fullLabels = [];
+    let fullDataBalance = [];
+    let fullDataInterest = [];
+    let fullDataPayment = [];
+    let fullDataActualPayment = [];
+    let fullDataRate = [];
+    let historicalEndMonth = null;
+
 
     let amortizationSchedule = [];
 
@@ -934,26 +1029,20 @@ function runSimulation(params) {
             totalPaid: rataDaPagare + extra
         });
 
-        // ── STEP 7: Campionamento dati per il grafico ──
-        // Campionamento: mese 1, ogni 3 mesi, fine dati storici Euribor, ultimo mese
+        // ── STEP 7: Salvataggio dati per il grafico (TUTTI i mesi) ──
         if (generateChart) {
-            const isHistoricalEnd = (euriborConfig.active && m === euriborConfig.historicalCount);
+            fullLabels.push('Mese ' + m);
+            fullDataBalance.push(Math.max(0, currentBalance));
+            fullDataInterest.push(totalInterestPaid);
+            fullDataPayment.push(currentRata);
+            fullDataActualPayment.push(rataDaPagare + extra);
+            fullDataRate.push(currentAnnualRate);
 
-            if (m === 1 || m % 3 === 0 || isHistoricalEnd || currentBalance <= 0.01) {
-                let label = 'Mese ' + m;
-                chartLabels.push(label);
-                chartDataBalance.push(Math.max(0, currentBalance));
-                chartDataInterest.push(totalInterestPaid);
-                chartDataPayment.push(currentRata);                    // Rata teorica (senza extra)
-                chartDataActualPayment.push(rataDaPagare + extra);     // Versamento effettivo (rata + extra)
-                chartDataRate.push(currentAnnualRate);                 // Tasso annuo corrente
-
-                // Segna il punto di transizione da dati storici a proiezione
-                if (isHistoricalEnd && m < totalMonths && currentBalance > 0.01) {
-                    historicalEndLabel = label;
-                }
+            if (euriborConfig.active && m === euriborConfig.historicalCount) {
+                historicalEndMonth = m;
             }
         }
+
 
         // ── Chiusura anticipata: se il debito è azzerato, registra il mese e esci ──
         if (currentBalance <= 0.01) {
@@ -968,13 +1057,13 @@ function runSimulation(params) {
         totalInterestPaid,
         totalExtraPaid,
         actualMonths,
-        chartLabels,
-        chartDataBalance,
-        chartDataInterest,
-        chartDataPayment,
-        chartDataActualPayment,
-        chartDataRate,
-        historicalEndLabel,
+        fullLabels,
+        fullDataBalance,
+        fullDataInterest,
+        fullDataPayment,
+        fullDataActualPayment,
+        fullDataRate,
+        historicalEndMonth,
         amortizationSchedule
     };
 }
@@ -1015,17 +1104,51 @@ function resetOutputs() {
  *    • y_payment: importi mensili (€)       — destro
  *    • y_hidden:  tasso 0-10% (nascosto)
  *
- *  @param {string[]} labels             - Etichette asse X (es. "Mese 1", "Mese 3", ...)
- *  @param {number[]} balanceData        - Debito residuo
- *  @param {number[]} interestData       - Interessi cumulati
- *  @param {number[]} paymentData        - Rata teorica (senza extra)
- *  @param {number[]} actualPaymentData  - Versamento effettivo (rata + extra)
- *  @param {number[]} rateData           - Tasso annuo (%)
- *  @param {string|null} historicalEndLabel - Etichetta punto fine dati storici
- * ========================================================================== */
+ *  @param {string[]} allLabels          - Tutte le etichette generate
+ *  @param {number[]} allBalanceData     - Tutti i dati debito
+ *  @param {number[]} allInterestData    - Tutti i dati interessi
+ *  @param {number[]} allPaymentData     - Tutte le rate teoriche
+ *  @param {number[]} allActualPaymentData - Tutti i versamenti effettivi
+ *  @param {number[]} allRateData        - Tutti i tassi
+ *  @param {number|null} historicalEndMonth - Numero del mese di fine dati storici
+ */
 
-function updateChart(labels, balanceData, interestData, paymentData, actualPaymentData, rateData, historicalEndLabel) {
+function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData, allActualPaymentData, allRateData, historicalEndMonth, shouldAnimate = true) {
     const ctx = document.getElementById('mortgageChart').getContext('2d');
+
+    // Lettura intervallo selezionato
+    const startM = parseInt(chartRangeMin.value) || 1;
+    const endM = parseInt(chartRangeMax.value) || allLabels.length;
+
+    // ── FILTRAGGIO E CAMPIONAMENTO DINAMICO (RISOLUZIONE) ──
+    const windowSize = endM - startM + 1;
+    let step = Math.max(1, Math.floor(windowSize / 120));
+
+
+    let labels = [];
+    let balanceData = [];
+    let interestData = [];
+    let paymentData = [];
+    let actualPaymentData = [];
+    let rateData = [];
+    let historicalEndLabel = null;
+
+    for (let i = startM - 1; i < endM; i++) {
+        const m = i + 1;
+        // Includi sempre il primo e l'ultimo punto dell'intervallo, e i punti intermedi secondo lo step
+        if (m === startM || m === endM || (m - startM) % step === 0 || m === historicalEndMonth) {
+            labels.push(allLabels[i]);
+            balanceData.push(allBalanceData[i]);
+            interestData.push(allInterestData[i]);
+            paymentData.push(allPaymentData[i]);
+            actualPaymentData.push(allActualPaymentData[i]);
+            rateData.push(allRateData[i]);
+
+            if (m === historicalEndMonth) {
+                historicalEndLabel = allLabels[i];
+            }
+        }
+    }
 
     if (myChart) myChart.destroy();
 
@@ -1134,6 +1257,7 @@ function updateChart(labels, balanceData, interestData, paymentData, actualPayme
             ]
         },
         options: {
+            animation: shouldAnimate ? {} : false,
             responsive: true,
             maintainAspectRatio: false,
             interaction: {
