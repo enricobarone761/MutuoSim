@@ -102,6 +102,7 @@ const rangeLabelEnd = document.getElementById('rangeLabelEnd');
 
 // Variabile per memorizzare i risultati completi dell'ultima simulazione
 let lastFullResults = null;
+const MIN_CHART_RANGE = 6; // Differenza minima tra min e max in mesi
 
 
 /* ==========================================================================
@@ -226,14 +227,15 @@ function handleRangeChange() {
     let min = parseInt(chartRangeMin.value);
     let max = parseInt(chartRangeMax.value);
 
-    // Impedisci che il min superi il max
-    if (min > max - 6) {
+    // Impedisci che il min superi il max rispettando il range minimo
+    if (min > max - MIN_CHART_RANGE) {
         if (this === chartRangeMin) {
-            chartRangeMin.value = max - 6;
-            min = max - 6;
+            chartRangeMin.value = Math.max(1, max - MIN_CHART_RANGE);
+            min = parseInt(chartRangeMin.value);
         } else {
-            chartRangeMax.value = min + 6;
-            max = min + 6;
+            const total = parseInt(chartRangeMax.max);
+            chartRangeMax.value = Math.min(total, min + MIN_CHART_RANGE);
+            max = parseInt(chartRangeMax.value);
         }
     }
 
@@ -658,12 +660,28 @@ function calculate() {
 
     // Aggiorna il range massimo dei cursori in base alla durata effettiva
     const maxMonths = results.actualMonths;
+    const oldMaxHistory = parseInt(chartRangeMax.oldMax || 0);
+    const wasAtEnd = parseInt(chartRangeMax.value) >= oldMaxHistory - 1;
+
     chartRangeMin.max = maxMonths;
     chartRangeMax.max = maxMonths;
-    if (parseInt(chartRangeMax.value) > maxMonths || parseInt(chartRangeMax.value) === parseInt(chartRangeMax.oldMax || 0)) {
-        chartRangeMax.value = maxMonths;
+
+    let currentMin = parseInt(chartRangeMin.value);
+    let currentMax = parseInt(chartRangeMax.value);
+
+    // Se la durata totale è diminuita sotto i valori correnti, scala i cursori
+    if (currentMax > maxMonths || wasAtEnd) {
+        currentMax = maxMonths;
     }
+
+    if (currentMin > currentMax - MIN_CHART_RANGE) {
+        currentMin = Math.max(1, currentMax - MIN_CHART_RANGE);
+    }
+
+    chartRangeMin.value = currentMin;
+    chartRangeMax.value = currentMax;
     chartRangeMax.oldMax = maxMonths;
+
     updateRangeUI();
 
     // ── AGGIORNAMENTO OUTPUT NUMERICI ──
