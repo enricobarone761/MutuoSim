@@ -43,6 +43,17 @@ const outTotalPaid = document.getElementById('outTotalPaid');
 const savedTimeBox = document.getElementById('saved-time-box');
 const outSavedTime = document.getElementById('outSavedTime');
 
+// --- Sezione Soluzione Ibrida ---
+const hybridToggle = document.getElementById('hybridToggle');
+const hybridSection = document.getElementById('hybrid-section');
+const hybridLoanAmountInput = document.getElementById('hybridLoanAmount');
+const hybridLoanRateInput = document.getElementById('hybridLoanRate');
+const hybridLoanYearsInput = document.getElementById('hybridLoanYears');
+const hybridResultsBox = document.getElementById('hybrid-results');
+const outHybridCombinedRata = document.getElementById('outHybridCombinedRata');
+const outHybridInterestSaving = document.getElementById('outHybridInterestSaving');
+const outHybridTotalDiff = document.getElementById('outHybridTotalDiff');
+
 // --- Tabella sensibilità ---
 const rataBox = document.getElementById('rataBox');
 const rataSensitivityPanel = document.getElementById('rataSensitivityPanel');

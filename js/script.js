@@ -146,6 +146,14 @@ if (chartRangeMin && chartRangeMax) {
     chartRangeMax.addEventListener('input', handleRangeChange);
 }
 
+// --- Event Listeners Soluzione Ibrida ---
+if (hybridToggle) {
+    hybridToggle.addEventListener('change', toggleHybridSection);
+    hybridLoanAmountInput.addEventListener('input', calculate);
+    hybridLoanRateInput.addEventListener('input', calculate);
+    hybridLoanYearsInput.addEventListener('input', calculate);
+}
+
 /* ==========================================================================
  *  3. CALCULATE() — Orchestratore
  * ========================================================================== */
@@ -178,17 +186,62 @@ function calculate() {
     const ratePeriods = isVariable ? getRatePeriods() : [];
     const euriborConfig = (typeof getEuriborConfig === 'function') ? getEuriborConfig() : { active: false, rates: [] };
 
+    let simP = P;
+    let loanRata = 0;
+    let loanMonths = 0;
+    const isHybridActive = hybridToggle && hybridToggle.checked;
+
+    if (isHybridActive) {
+        const hAmount = parseFloat(hybridLoanAmountInput.value) || 0;
+        const hRate = parseFloat(hybridLoanRateInput.value) || 0;
+        const hYears = parseInt(hybridLoanYearsInput.value) || 0;
+        simP = Math.max(0, P - hAmount);
+        loanMonths = hYears * 12;
+
+        const monthlyLoanRate = hRate / 100 / 12;
+        if (monthlyLoanRate === 0) {
+            loanRata = (Math.min(P, hAmount)) / Math.max(1, loanMonths);
+        } else {
+            loanRata = (Math.min(P, hAmount) * monthlyLoanRate) / (1 - Math.pow(1 + monthlyLoanRate, -Math.max(1, loanMonths)));
+        }
+    }
+
     const baselineResults = runSimulation({
-        P, totalMonths, baseRate, euriborConfig, ratePeriods, isVariable,
+        P: simP, totalMonths, baseRate, euriborConfig, ratePeriods, isVariable,
         extraPaymentsList: [], capitalAdditionsList, roundUpStartMonth: 0, roundUpAmount: 0, roundUpAnnualIncrease: 0,
         generateChart: false
     });
 
     const results = runSimulation({
-        P, totalMonths, baseRate, euriborConfig, ratePeriods, isVariable,
+        P: simP, totalMonths, baseRate, euriborConfig, ratePeriods, isVariable,
         extraPaymentsList, capitalAdditionsList, roundUpStartMonth, roundUpAmount, roundUpAnnualIncrease,
         generateChart: true
     });
+
+    // Se ibrido attivo, aggiungiamo la rata del prestito al piano e ai dati del grafico
+    if (isHybridActive && loanRata > 0) {
+        results.amortizationSchedule.forEach(row => {
+            if (row.month <= loanMonths) {
+                row.payment += loanRata;
+                row.totalPaid += loanRata;
+            }
+        });
+        results.fullDataActualPayment = results.fullDataActualPayment.map((val, idx) => {
+            return (idx < loanMonths) ? val + loanRata : val;
+        });
+        // Aggiorniamo anche la rata teorica per il grafico se necessario
+        results.fullDataPayment = results.fullDataPayment.map((val, idx) => {
+            return (idx < loanMonths) ? val + loanRata : val;
+        });
+
+        // Ricalcoliamo interessi totali per includere quelli del prestito (per gli output in UI)
+        const totalLoanInterest = (loanRata * loanMonths) - Math.min(P, parseFloat(hybridLoanAmountInput.value) || 0);
+        results.totalInterestPaid += totalLoanInterest;
+
+        // Aggiorniamo rata iniziale e massima per la UI
+        results.firstRata += loanRata;
+        if (results.maxRataSeen < results.firstRata) results.maxRataSeen = results.firstRata;
+    }
 
     const interestSaved = Math.max(0, baselineResults.totalInterestPaid - results.totalInterestPaid);
     let savedMonths = 0;
@@ -290,6 +343,24 @@ function calculate() {
     }
 
     updateSensitivityTable(P, years, baseRate);
+
+    // --- Calcolo Soluzione Ibrida ---
+    if (hybridToggle && hybridToggle.checked) {
+        const hybridParams = {
+            loanAmount: parseFloat(hybridLoanAmountInput.value) || 0,
+            loanRate: parseFloat(hybridLoanRateInput.value) || 0,
+            loanYears: parseInt(hybridLoanYearsInput.value) || 0
+        };
+
+        const baseParamsForHybrid = {
+            P, totalMonths: years * 12, baseRate, euriborConfig, ratePeriods, isVariable,
+            extraPaymentsList, capitalAdditionsList, roundUpStartMonth, roundUpAmount, roundUpAnnualIncrease,
+            generateChart: false
+        };
+
+        const hybridResults = calculateHybridScenario(baseParamsForHybrid, hybridParams);
+        updateHybridUI(hybridResults);
+    }
 }
 
 // Avvio Iniziale

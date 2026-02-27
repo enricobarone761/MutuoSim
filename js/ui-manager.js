@@ -212,6 +212,30 @@ function getCapitalAdditions() {
 }
 
 /**
+ * Gestione Soluzione Ibrida
+ */
+function toggleHybridSection() {
+    const isVisible = hybridToggle.checked;
+    hybridSection.style.display = isVisible ? 'block' : 'none';
+    hybridResultsBox.style.display = isVisible ? 'block' : 'none';
+    calculate();
+}
+
+function updateHybridUI(results) {
+    if (!results) return;
+
+    outHybridCombinedRata.textContent = fmtCurr(results.scenarioB.combinedRata);
+
+    const intSaving = results.interestSaving;
+    outHybridInterestSaving.textContent = (intSaving >= 0 ? '+' : '') + fmtCurr(intSaving);
+    outHybridInterestSaving.style.color = intSaving >= 0 ? '#10b981' : '#f43f5e';
+
+    const totalDiff = results.totalSaving;
+    outHybridTotalDiff.textContent = (totalDiff >= 0 ? 'Risparmio: ' : 'Sovrapprezzo: ') + fmtCurr(Math.abs(totalDiff));
+    outHybridTotalDiff.style.color = totalDiff >= 0 ? '#10b981' : '#f43f5e';
+}
+
+/**
  * Tabella Sensibilità e Reset
  */
 function updateSensitivityTable(P, years, baseRate) {

@@ -211,7 +211,7 @@ function runSimulation(params) {
             interest: quotaInteressi,
             extra: extra,
             capitalAddition: capitalAddedThisMonth,
-            totalPaid: rataDaPagare + extra
+            totalPaid: quotaCapitale + quotaInteressi + extra
         });
 
         if (generateChart) {
@@ -246,5 +246,70 @@ function runSimulation(params) {
         fullDataRate,
         historicalEndMonth,
         amortizationSchedule
+    };
+}
+
+/**
+ * Calcola lo scenario ibrido: Mutuo ridotto + Prestito Personale.
+ * @param {Object} baseParams - Parametri originali del mutuo
+ * @param {Object} hybridParams - Parametri del prestito personale
+ * @returns {Object} Oggetto con i risultati del confronto
+ */
+function calculateHybridScenario(baseParams, hybridParams) {
+    // 1. Mutuo Standard (Scenario A)
+    const resA = runSimulation({ ...baseParams, generateChart: false });
+
+    // 2. Mutuo Ridotto (Scenario B1)
+    const reducedAmount = Math.max(0, baseParams.P - hybridParams.loanAmount);
+    const pB1 = { ...baseParams, P: reducedAmount, generateChart: false };
+    const resB1 = runSimulation(pB1);
+
+    // 3. Prestito Personale (Scenario B2)
+    const loanAmount = Math.min(baseParams.P, hybridParams.loanAmount);
+    const loanRate = hybridParams.loanRate;
+    const loanYears = Math.max(1, hybridParams.loanYears);
+    const loanMonths = loanYears * 12;
+
+    let loanRata = 0;
+    let totalLoanPaid = 0;
+    let totalLoanInterest = 0;
+
+    if (loanAmount > 0) {
+        const monthlyLoanRate = loanRate / 100 / 12;
+        if (monthlyLoanRate === 0) {
+            loanRata = loanAmount / loanMonths;
+        } else {
+            loanRata = (loanAmount * monthlyLoanRate) / (1 - Math.pow(1 + monthlyLoanRate, -loanMonths));
+        }
+        totalLoanPaid = loanRata * loanMonths;
+        totalLoanInterest = totalLoanPaid - loanAmount;
+    }
+
+    // 4. Risultati B (Ibrido)
+    const totalInterestB = resB1.totalInterestPaid + totalLoanInterest;
+
+    // Totale pagato Scenario A (Standard): P + Interessi + Extra
+    const totalPaidA = baseParams.P + resA.totalInterestPaid + resA.totalExtraPaid;
+
+    // Totale pagato Scenario B (Ibrido): 
+    // Capitale Mutuo Ridotto + Interessi Mutuo Ridotto + Extra Mutuo Ridotto + Totale Versato PL
+    const totalPaidB = reducedAmount + resB1.totalInterestPaid + resB1.totalExtraPaid + totalLoanPaid;
+
+    return {
+        scenarioA: {
+            totalInterest: resA.totalInterestPaid,
+            totalPaid: totalPaidA,
+            firstRata: resA.firstRata
+        },
+        scenarioB: {
+            mortgageFirstRata: resB1.firstRata,
+            loanRata: loanRata,
+            combinedRata: resB1.firstRata + loanRata,
+            totalInterest: totalInterestB,
+            totalPaid: totalPaidB,
+            loanDurationMonths: loanMonths
+        },
+        interestSaving: resA.totalInterestPaid - totalInterestB,
+        totalSaving: totalPaidA - totalPaidB
     };
 }
