@@ -53,11 +53,24 @@ rataBox.addEventListener('click', function () {
 });
 
 if (openAmortizationBtn && closeAmortizationBtn && amortizationDrawer) {
-    openAmortizationBtn.addEventListener('click', () => {
+    openAmortizationBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Evita che il click si propaghi al document e chiuda subito il drawer
         amortizationDrawer.classList.add('open');
     });
     closeAmortizationBtn.addEventListener('click', () => {
         amortizationDrawer.classList.remove('open');
+    });
+
+    // Chiudi cliccando fuori dal drawer
+    document.addEventListener('click', (e) => {
+        if (amortizationDrawer.classList.contains('open') && !amortizationDrawer.contains(e.target)) {
+            amortizationDrawer.classList.remove('open');
+        }
+    });
+
+    // Evita che i click all'interno del drawer lo chiudano
+    amortizationDrawer.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 }
 

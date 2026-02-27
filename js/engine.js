@@ -165,7 +165,11 @@ function runSimulation(params) {
             if (yearsElapsed > 0) {
                 growthFactor = Math.pow(1 + roundUpAnnualIncrease / 100, yearsElapsed);
             }
-            const effectiveRoundUpAmount = roundUpAmount * growthFactor;
+            let effectiveRoundUpAmount = roundUpAmount * growthFactor;
+            // Se l'incremento annuo è attivo, arrotonda alla decina più vicina (es: 827.42 -> 830, 851.37 -> 850)
+            if (roundUpAnnualIncrease > 0) {
+                effectiveRoundUpAmount = Math.round(effectiveRoundUpAmount / 10) * 10;
+            }
 
             if (effectiveRoundUpAmount > currentRata) {
                 const roundUpDiff = effectiveRoundUpAmount - currentRata;
