@@ -286,6 +286,38 @@ select:focus {
     border-color: var(--text-muted);
 }
 
+.btn-secondary {
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--accent-blue);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    width: 100%;
+    padding: 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top: 8px;
+}
+
+.btn-secondary:hover {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+    transform: translateY(0);
+}
+
+.top-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 /* Results Section */
 .results-grid {
     display: grid;
