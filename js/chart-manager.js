@@ -72,7 +72,7 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
     const endM = parseInt(chartRangeMax.value) || allLabels.length;
 
     const windowSize = endM - startM + 1;
-    let step = Math.max(1, Math.floor(windowSize / 120));
+    let step = Math.max(1, Math.floor(windowSize / 60));
 
     let labels = [];
     let balanceData = [];
@@ -84,7 +84,14 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
 
     for (let i = startM - 1; i < endM; i++) {
         const m = i + 1;
-        if (m === startM || m === endM || (m - startM) % step === 0 || m === historicalEndMonth) {
+
+        // Campionamento intelligente: preserviamo i punti "critici"
+        const isRegularStep = (m - startM) % step === 0;
+        const isSpike = allActualPaymentData[i] > (allPaymentData[i] + 1);
+        const isRateChange = i > 0 && Math.abs(allRateData[i] - allRateData[i - 1]) > 0.0001;
+        const isInstallmentChange = i > 0 && Math.abs(allPaymentData[i] - allPaymentData[i - 1]) > 0.01;
+
+        if (m === startM || m === endM || isRegularStep || m === historicalEndMonth || isSpike || isRateChange || isInstallmentChange) {
             labels.push(allLabels[i]);
             balanceData.push(allBalanceData[i]);
             interestData.push(allInterestData[i]);
