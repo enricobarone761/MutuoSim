@@ -489,7 +489,7 @@ select:focus {
     cursor: pointer;
     pointer-events: auto;
     -webkit-appearance: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .range-slider-input::-moz-range-thumb {
@@ -500,7 +500,7 @@ select:focus {
     border: 2px solid var(--accent-blue);
     cursor: pointer;
     pointer-events: auto;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .range-label-container {
@@ -642,4 +642,25 @@ select:focus {
 
 .amortization-table tbody tr:hover {
     background-color: rgba(255, 255, 255, 0.03);
+}
+
+#calcYearsFromRataBtn {
+    transition: all 0.2s ease;
+}
+
+#calcYearsFromRataBtn:hover {
+    color: var(--accent-green) !important;
+    transform: translateY(-50%) scale(1.1) !important;
+}
+
+#calcYearsFromRataBtn:active {
+    transform: translateY(-50%) scale(0.9) !important;
+}
+
+#calcYearsFromRataBtn svg {
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#calcYearsFromRataBtn:hover svg {
+    transform: rotate(180deg);
 }

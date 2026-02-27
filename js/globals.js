@@ -9,6 +9,8 @@
 // --- Input principali del mutuo ---
 const amountInput = document.getElementById('amount');
 const yearsInput = document.getElementById('years');
+const targetRataInput = document.getElementById('targetRata');
+const calcYearsFromRataBtn = document.getElementById('calcYearsFromRataBtn');
 const rateInput = document.getElementById('rate');
 const rateNumericInput = document.getElementById('rateNumeric');
 

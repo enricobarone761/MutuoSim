@@ -26,6 +26,38 @@ amountInput.addEventListener('input', calculate);
 yearsInput.addEventListener('input', calculate);
 rateInput.addEventListener('input', calculate);
 
+if (calcYearsFromRataBtn) {
+    calcYearsFromRataBtn.addEventListener('click', () => {
+        const P = parseFloat(amountInput.value) || 0;
+        const target = parseFloat(targetRataInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+
+        if (P <= 0 || target <= 0) return;
+
+        let bestY = 1;
+        let minDiff = Infinity;
+
+        // Cerchiamo la durata (1-50 anni) che si avvicina di più alla rata target
+        for (let y = 1; y <= 50; y++) {
+            const r = calcRata(P, y, rate);
+            const diff = Math.abs(r - target);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestY = y;
+            }
+        }
+
+        yearsInput.value = bestY;
+        calculate();
+
+        // Effetto grafico feedback
+        calcYearsFromRataBtn.style.color = '#10b981';
+        setTimeout(() => {
+            calcYearsFromRataBtn.style.color = '#a855f7';
+        }, 500);
+    });
+}
+
 addExtraPaymentBtn.addEventListener('click', () => addExtraPayment());
 
 if (addCapitalAdditionBtn) {
