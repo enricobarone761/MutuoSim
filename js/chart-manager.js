@@ -232,11 +232,23 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
                         if (visibleValues.length > 0) {
                             const minVal = Math.min(...visibleValues);
                             const maxVal = Math.max(...visibleValues);
-                            chart.options.scales.y_payment.suggestedMin = minVal * 0.9;
-                            chart.options.scales.y_payment.suggestedMax = maxVal * 1.1;
+
+                            // Logica intelligente: se il valore minimo è alto (>25% del massimo), facciamo zoom
+                            // Altrimenti includiamo lo zero per dare prospettiva.
+                            const marginTop = maxVal * 0.2;
+                            const marginBottom = minVal * 0.2;
+
+                            chart.options.scales.y_payment.suggestedMax = maxVal + marginTop;
+
+                            const minCandidate = minVal - marginBottom;
+                            if (minCandidate < maxVal * 0.25) {
+                                chart.options.scales.y_payment.suggestedMin = 0;
+                            } else {
+                                chart.options.scales.y_payment.suggestedMin = Math.max(0, minCandidate);
+                            }
                         } else {
                             chart.options.scales.y_payment.suggestedMin = 0;
-                            chart.options.scales.y_payment.suggestedMax = 5000;
+                            chart.options.scales.y_payment.suggestedMax = 2000;
                         }
                         chart.update();
                     }
@@ -287,8 +299,25 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
                 y_payment: {
                     position: 'right',
                     beginAtZero: false,
-                    suggestedMin: 400,
-                    suggestedMax: 1500,
+                    // Calcolo dinamico e intelligente dei limiti
+                    ...(function () {
+                        const allVis = [...paymentData, ...actualPaymentData].filter(v => v > 0);
+                        if (allVis.length > 0) {
+                            const minVal = Math.min(...allVis);
+                            const maxVal = Math.max(...allVis);
+                            const marginTop = maxVal * 0.2;
+                            const marginBottom = minVal * 0.2;
+
+                            const sMax = maxVal + marginTop;
+                            const sMin = minVal - marginBottom;
+
+                            return {
+                                suggestedMax: sMax,
+                                suggestedMin: sMin < maxVal * 0.25 ? 0 : Math.max(0, sMin)
+                            };
+                        }
+                        return { suggestedMin: 0, suggestedMax: 1500 };
+                    })(),
                     ticks: {
                         callback: function (val) {
                             return val + '€';
