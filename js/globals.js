@@ -72,3 +72,34 @@ const rangeLabelEnd = document.getElementById('rangeLabelEnd');
 
 // Stato Globale Condiviso
 let lastFullResults = null;
+
+// --- Advanced Features ---
+const toggleAdvancedBtn = document.getElementById('toggleAdvancedBtn');
+const closeAdvancedBtn = document.getElementById('closeAdvancedBtn');
+const advancedSection = document.getElementById('advancedSection');
+
+const costIstruttoria = document.getElementById('costIstruttoria');
+const costPerizia = document.getElementById('costPerizia');
+const costNotaio = document.getElementById('costNotaio');
+const costImposta = document.getElementById('costImposta');
+const costAssicurazione = document.getElementById('costAssicurazione');
+const outTaeg = document.getElementById('outTaeg');
+
+const calcDetrazione = document.getElementById('calcDetrazione');
+const detrazioneBox = document.getElementById('detrazioneBox');
+const outDetrazioneTotale = document.getElementById('outDetrazioneTotale');
+
+const investmentRate = document.getElementById('investmentRate');
+const outInvestmentValue = document.getElementById('outInvestmentValue');
+
+const monthlyIncome = document.getElementById('monthlyIncome');
+const dtiBox = document.getElementById('dtiBox');
+const outDti = document.getElementById('outDti');
+
+const propertyValue = document.getElementById('propertyValue');
+
+const saveScenario1Btn = document.getElementById('saveScenario1Btn');
+const loadScenario1Btn = document.getElementById('loadScenario1Btn');
+const saveScenario2Btn = document.getElementById('saveScenario2Btn');
+const loadScenario2Btn = document.getElementById('loadScenario2Btn');
+const interestHeatmapContainer = document.getElementById('interestHeatmapContainer');

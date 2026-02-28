@@ -105,6 +105,15 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
         }
     }
 
+    // Costruisci dati LTV se abbiamo un propertyValue valido
+    let ltvData = [];
+    const propVal = (typeof lastFullResults !== 'undefined' && lastFullResults && lastFullResults.propertyValue)
+        ? lastFullResults.propertyValue
+        : null;
+    if (propVal > 0) {
+        ltvData = balanceData.map(bal => (bal / propVal) * 100);
+    }
+
     if (myChart) myChart.destroy();
 
     let gradientBalance = ctx.createLinearGradient(0, 0, 0, 400);
@@ -135,6 +144,86 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
         };
     }
 
+    const datasets = [
+        {
+            label: 'Debito Residuo (€)',
+            data: balanceData,
+            borderColor: '#10b981',
+            backgroundColor: gradientBalance,
+            fill: true,
+            tension: 0.1,
+            cubicInterpolationMode: 'monotone',
+            borderWidth: 3,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            yAxisID: 'y'
+        },
+        {
+            label: 'Rata Mensile (€)',
+            data: paymentData,
+            borderColor: '#3b82f6',
+            backgroundColor: '#3b82f6',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.1,
+            cubicInterpolationMode: 'monotone',
+            yAxisID: 'y_payment'
+        },
+        {
+            label: 'Versamento Effettivo (€)',
+            hidden: false,
+            data: actualPaymentData,
+            borderColor: '#f59e0b',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.1,
+            cubicInterpolationMode: 'monotone',
+            yAxisID: 'y_payment'
+        },
+        {
+            label: 'Interessi Cumulati (€)',
+            data: interestData,
+            borderColor: '#f43f5e',
+            backgroundColor: gradientInterest,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.1,
+            cubicInterpolationMode: 'monotone',
+            yAxisID: 'y'
+        },
+        {
+            label: 'Tasso %',
+            data: rateData,
+            borderColor: 'transparent',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            borderWidth: 0,
+            yAxisID: 'y_hidden'
+        }
+    ];
+
+    if (propVal > 0) {
+        datasets.push({
+            label: 'LTV (%)',
+            data: ltvData,
+            borderColor: '#a855f7',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [2, 2],
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0.1,
+            cubicInterpolationMode: 'monotone',
+            yAxisID: 'y_ltv'
+        });
+    }
+
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.color = '#94a3b8';
 
@@ -142,69 +231,7 @@ function updateChart(allLabels, allBalanceData, allInterestData, allPaymentData,
         type: 'line',
         data: {
             labels: labels,
-            datasets: [
-                {
-                    label: 'Debito Residuo (€)',
-                    data: balanceData,
-                    borderColor: '#10b981',
-                    backgroundColor: gradientBalance,
-                    fill: true,
-                    tension: 0.1,
-                    cubicInterpolationMode: 'monotone',
-                    borderWidth: 3,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Rata Mensile (€)',
-                    data: paymentData,
-                    borderColor: '#3b82f6',
-                    backgroundColor: '#3b82f6',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.1,
-                    cubicInterpolationMode: 'monotone',
-                    yAxisID: 'y_payment'
-                },
-                {
-                    label: 'Versamento Effettivo (€)',
-                    hidden: false,
-                    data: actualPaymentData,
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    borderDash: [5, 4],
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.1,
-                    cubicInterpolationMode: 'monotone',
-                    yAxisID: 'y_payment'
-                },
-                {
-                    label: 'Interessi Cumulati (€)',
-                    data: interestData,
-                    borderColor: '#f43f5e',
-                    backgroundColor: gradientInterest,
-                    fill: true,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.1,
-                    cubicInterpolationMode: 'monotone',
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Tasso %',
-                    data: rateData,
-                    borderColor: 'transparent',
-                    backgroundColor: 'transparent',
-                    pointRadius: 0,
-                    borderWidth: 0,
-                    yAxisID: 'y_hidden'
-                }
-            ]
+            datasets: datasets
         },
         options: {
             animation: shouldAnimate ? {} : false,

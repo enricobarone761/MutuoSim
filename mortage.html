@@ -24,7 +24,8 @@
                 <h1>Mutuo Sim</h1>
 
                 <div class="input-group">
-                    <label>Importo Mutuo (€)</label>
+                    <label>Importo Mutuo (€) <span class="info-icon"
+                            data-tooltip="Il capitale totale richiesto alla banca.">i</span></label>
                     <input type="number" id="amount" value="160000" step="1000">
                 </div>
 
@@ -32,14 +33,17 @@
                 <div style="margin-bottom: 24px;">
                     <button class="btn btn-add" id="addCapitalAdditionBtn"
                         style="background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.3); color: #10b981; padding: 6px 12px; font-size: 0.8rem; width: auto;">+
-                        Aggiunta Capitale</button>
+                        Aggiunta Capitale <span class="info-icon"
+                            data-tooltip="Simula l'erogazione di ulteriore capitale nel tempo (es. ristrutturazione).">i</span></button>
                 </div>
 
                 <div class="input-group">
                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                        <label>Durata (Anni)</label>
+                        <label>Durata (Anni) <span class="info-icon"
+                                data-tooltip="La durata complessiva del mutuo. Massimo 30 anni.">i</span></label>
                         <label style="font-size: 0.7rem; color: var(--accent-purple);">Ricalcola anni con Rata
-                            Target</label>
+                            Target <span class="info-icon"
+                                data-tooltip="Imposta una rata desiderata e trova la durata minima per ottenerla.">i</span></label>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="number" id="years" value="30" step="1" min="1" max="30" style="flex: 1;">
@@ -66,7 +70,8 @@
                 <div class="input-group">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <label style="margin-bottom: 0;">Tasso Base Annuo</label>
+                        <label style="margin-bottom: 0;">Tasso Base Annuo <span class="info-icon"
+                                data-tooltip="Il tasso d'interesse nominale (TAN) applicato.">i</span></label>
                         <div class="value-badge">
                             <input type="number" id="rateNumeric" value="3.5" step="0.1" min="0" max="25"
                                 class="badge-input">
@@ -83,7 +88,8 @@
                     <input type="checkbox" id="isVariable" class="toggle-checkbox">
                     <div>
                         <label for="isVariable" style="margin:0; cursor:pointer; color: #a855f7;">Scenario Variabile
-                            Manuale</label>
+                            Manuale <span class="info-icon"
+                                data-tooltip="Pianifica variazioni di tasso personalizzate in mesi specifici.">i</span></label>
                         <small
                             style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Definisci
                             tassi per periodi futuri.</small>
@@ -101,7 +107,8 @@
                     <input type="checkbox" id="useEuribor" class="toggle-checkbox" style="accent-color: #3b82f6;">
                     <div>
                         <label for="useEuribor" style="margin:0; cursor:pointer; color: #3b82f6;">Simulazione
-                            Euribor</label>
+                            Euribor <span class="info-icon"
+                                data-tooltip="Simula l'andamento del mutuo usando lo storico REALE dell'Euribor.">i</span></label>
                         <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Usa
                             dati storici reali.</small>
                     </div>
@@ -128,7 +135,9 @@
 
                 <hr>
 
-                <h3>Estinzioni Parziali</h3>
+                <h3>Estinzioni Parziali <span class="info-icon"
+                        data-tooltip="Simula versamenti extra una tantum per abbattere il debito residuo e risparmiare interessi.">i</span>
+                </h3>
                 <div id="extra-payments-container"></div>
                 <button class="btn btn-add" id="addExtraPaymentBtn">+ Estinzione Parziale</button>
 
@@ -136,7 +145,8 @@
 
                 <h3>Arrotondamento Rata</h3>
                 <div class="input-group">
-                    <label>Arrotonda Rata a (€, 0=Disattivo)</label>
+                    <label>Arrotonda Rata a (€) <span class="info-icon"
+                            data-tooltip="Arrotonda la rata mensile per eccesso (es. da 827€ a 850€) per estinguere il mutuo prima.">i</span></label>
                     <input type="number" id="roundUpAmount" value="0" step="10" min="0">
                 </div>
                 <div class="input-group">
@@ -144,7 +154,8 @@
                     <input type="number" id="roundUpStartMonth" value="0" step="1" min="0" max="360">
                 </div>
                 <div class="input-group">
-                    <label>Incremento Annuo Importo (%)</label>
+                    <label>Incremento Annuo (%) <span class="info-icon"
+                            data-tooltip="Aumenta l'importo dell'arrotondamento ogni anno (es. per inflazione o scatti di carriera).">i</span></label>
                     <input type="number" id="roundUpAnnualIncrease" value="0" step="0.1" min="0" max="50">
                 </div>
                 <small
@@ -158,8 +169,10 @@
                     style="background: rgba(168, 85, 247, 0.05); border-left: 4px solid #a855f7;">
                     <input type="checkbox" id="hybridToggle" class="toggle-checkbox" style="accent-color: #a855f7;">
                     <div>
-                        <label for="hybridToggle" style="margin:0; cursor:pointer; color: #a855f7;">Confronto con
-                            Prestito Personale</label>
+                        <label for="hybridToggle" style="margin:0; cursor:pointer; color: #a855f7;">Soluzione Ibrida
+                            (Mutuo
+                            + Prestito) <span class="info-icon"
+                                data-tooltip="Copre la differenza tra il prezzo d'acquisto e il mutuo con un prestito personale (Max 30k€).">i</span></label>
                         <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">
                             Sposta parte dell'importo su un prestito separato.
                         </small>
@@ -184,7 +197,12 @@
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
 
                 <div class="top-actions">
-                    <button id="openAmortizationBtn" class="btn btn-secondary">📊 Piano Ammortamento</button>
+                    <button id="openAmortizationBtn" class="btn btn-secondary"
+                        data-tooltip="Visualizza la tabella dettagliata mese per mese di tutto il mutuo.">📊 Piano
+                        Ammortamento</button>
+                    <button id="toggleAdvancedBtn" class="btn btn-secondary"
+                        style="margin-top: 10px; background: rgba(168, 85, 247, 0.08); color: var(--accent-purple); border-color: rgba(168, 85, 247, 0.3);">⚙️
+                        Funzioni Avanzate</button>
                 </div>
 
             </div>
@@ -195,20 +213,24 @@
             <div class="results-card">
                 <div class="results-header">
                     <div class="results-grid">
-                        <div class="result-box rata-toggle" id="rataBox" title="Clicca per analisi sensibilità">
+                        <div class="result-box rata-toggle" id="rataBox"
+                            data-tooltip="La prima rata calcolata. Clicca qui per vedere come cambierebbe se variassero anni o tassi (+/- 0.5%).">
                             <span class="label">Rata Iniziale</span>
                             <span class="value" id="outInitialPayment">--</span>
                             <span class="rata-chevron" id="rataChevron">▼</span>
                         </div>
-                        <div class="result-box">
+                        <div class="result-box"
+                            data-tooltip="Il picco massimo raggiunto dalla rata (importante per valutarne la sostenibilità futura).">
                             <span class="label">Rata Massima</span>
                             <span class="value" id="outMaxPayment">--</span>
                         </div>
-                        <div class="result-box">
+                        <div class="result-box"
+                            data-tooltip="Il costo vivo del prestito: la somma di soli interessi pagati alla fine di tutto il piano.">
                             <span class="label">Interessi Totali</span>
                             <span class="value" id="outTotalInterest">--</span>
                         </div>
-                        <div class="result-box">
+                        <div class="result-box"
+                            data-tooltip="La cifra reale complessiva rimborasta: Capitale + Interessi + Spese + Assicurazioni.">
                             <span class="label">Totale Pagato</span>
                             <span class="value" id="outTotalPaid">--</span>
                         </div>
@@ -294,6 +316,197 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Advanced Section (Right Sidebar) -->
+        <div class="advanced-section collapsed" id="advancedSection">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h1 style="margin: 0;">Avanzate</h1>
+                    <button id="closeAdvancedBtn"
+                        style="background: transparent; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer;">✕</button>
+                </div>
+
+                <h3>Costi Iniziali e TAEG <span class="info-icon"
+                        data-tooltip="Spese una tantum (istruttoria, perizia, notaio) che incidono sul costo reale del mutuo.">i</span>
+                </h3>
+                <div class="input-group">
+                    <label>Istruttoria (€)</label>
+                    <input type="number" id="costIstruttoria" value="0" step="10" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Perizia (€)</label>
+                    <input type="number" id="costPerizia" value="0" step="10" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Notaio (€)</label>
+                    <input type="number" id="costNotaio" value="0" step="10" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Imposta Sostitutiva (€)</label>
+                    <input type="number" id="costImposta" value="0" step="10" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Assicurazione (Mensile €) <span class="info-icon"
+                            data-tooltip="Costo mensile di polizze vita o scoppio/incendio obbligatorie.">i</span></label>
+                    <input type="number" id="costAssicurazione" value="0" step="1" min="0">
+                </div>
+
+                <!-- Box risultato TAEG -->
+                <div class="result-box"
+                    style="margin-top: 16px; margin-bottom: 24px; padding: 12px; border-color: rgba(16, 185, 129, 0.3);">
+                    <span class="label">TAEG (Stima) <span class="info-icon"
+                            data-tooltip="Il costo reale percentuale del mutuo, comprensivo di interessi e spese accessorie.">i</span></span>
+                    <span class="value" id="outTaeg" style="font-size: 1.2rem; color: #10b981;">--</span>
+                </div>
+
+                <hr>
+
+                <h3>Detrazioni Fiscali <span class="info-icon"
+                        data-tooltip="Recupero del 19% degli interessi passivi (max 4000€/anno) per l'abitazione principale.">i</span>
+                </h3>
+                <div class="toggle-container"
+                    style="background: rgba(16, 185, 129, 0.05); border-left: 4px solid #10b981;">
+                    <input type="checkbox" id="calcDetrazione" class="toggle-checkbox" style="accent-color: #10b981;">
+                    <div>
+                        <label for="calcDetrazione" style="margin:0; cursor:pointer; color: #10b981;">Calcola
+                            Detrazione</label>
+                        <small
+                            style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">(Prima
+                            casa, max 4000€/anno)</small>
+                    </div>
+                </div>
+                <div class="result-box"
+                    style="margin-top: 16px; margin-bottom: 24px; padding: 12px; border-color: rgba(16, 185, 129, 0.3); display: none;"
+                    id="detrazioneBox">
+                    <span class="label">Totale Detraibile Recuperato</span>
+                    <span class="value" id="outDetrazioneTotale" style="font-size: 1.2rem; color: #10b981;">--</span>
+                </div>
+
+                <hr>
+
+                <h3>Investimento Alternativo <span class="info-icon"
+                        data-tooltip="Compara il rendimento di un investimento finanziario rispetto al risparmio ottenuto con le estinzioni extra. Richiede che ci siano estinzioni o versamenti extra attivi.">i</span>
+                </h3>
+                <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom: 12px;">
+                    Se invece di fare estinzioni extra investissi quegli stessi soldi in un prodotto finanziario (ETF,
+                    PAC, ecc.), quanto avresti alla fine del mutuo?
+                </small>
+                <div class="input-group">
+                    <label>Rendimento Annuo Netto Atteso (%)
+                        <span class="info-icon"
+                            data-tooltip="Inserisci il rendimento annuo al netto di tasse e commissioni. Il mercato azionario storico è circa 7-8%, un BTP circa 3-4%, un conto deposito circa 3%.">i</span>
+                    </label>
+                    <input type="number" id="investmentRate" value="4.0" step="0.1" min="0" max="30">
+                </div>
+                <div id="investmentResultBox"
+                    style="margin-top: 16px; margin-bottom: 8px; padding: 14px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.25); border-radius: 8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">FV
+                            — Investimento <br> (al tuo tasso)</span>
+                        <span id="outInvestmentValue"
+                            style="font-size: 1.15rem; font-weight:700; color: #3b82f6;">--</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">FV
+                            — Rimborso anticipato <br> (al TAN)</span>
+                        <span id="outInvestmentSaving"
+                            style="font-size: 1.15rem; font-weight:700; color: #10b981;">--</span>
+                    </div>
+                    <div id="investmentVerdict"
+                        style="margin-top:8px; padding: 8px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; display:none;">
+                    </div>
+                </div>
+                <small id="investmentNote"
+                    style="display:block; color:var(--text-muted); font-size:0.72rem; margin-bottom:24px;">
+                    ⚠️ Attiva almeno un'estinzione extra o un arrotondamento per abilitare il confronto.
+                </small>
+
+                <hr>
+
+                <h3>Sostenibilità (DTI) <span class="info-icon"
+                        data-tooltip="Debt-to-Income: la percentuale del reddito netto assorbita dalla rata (Soglia consigliata 33%).">i</span>
+                </h3>
+                <div class="input-group">
+                    <label>Reddito Netto Mensile (€)</label>
+                    <input type="number" id="monthlyIncome" value="2000" step="100" min="0">
+                </div>
+                <div class="result-box" style="margin-top: 16px; margin-bottom: 24px; padding: 12px;" id="dtiBox">
+                    <span class="label">Rapporto Rata/Reddito</span>
+                    <span class="value" id="outDti" style="font-size: 1.2rem;">--</span>
+                </div>
+
+                <hr>
+
+                <h3>Indicatore LTV <span class="info-icon"
+                        data-tooltip="Loan-to-Value: il rapporto percentuale tra il debito residuo e il valore dell'immobile. Più è basso, più sei in una posizione solida con la banca.">i</span>
+                </h3>
+                <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom:12px;">
+                    Indica quanto del valore della casa è ancora "della banca". Scende nel tempo man mano che rimborsi
+                    il capitale.
+                </small>
+                <div class="input-group">
+                    <label>Valore Immobile (€)
+                        <span class="info-icon"
+                            data-tooltip="Il valore commerciale stimato dell'immobile. Puoi usare il prezzo d'acquisto o una perizia aggiornata.">i</span>
+                    </label>
+                    <input type="number" id="propertyValue" value="200000" step="1000" min="0">
+                </div>
+                <!-- LTV result block -->
+                <div id="ltvResultBox" style="margin-top:4px; margin-bottom:24px; display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">LTV all'accensione</span>
+                        <span id="outLtvPercent" style="font-size:1.4rem; font-weight:700;">--%</span>
+                    </div>
+                    <!-- Barra LTV -->
+                    <div
+                        style="position:relative; height:10px; background:rgba(255,255,255,0.08); border-radius:99px; margin-bottom:8px; overflow:hidden;">
+                        <div id="ltvBar" style="height:100%; border-radius:99px; width:0%; transition:width 0.5s ease;">
+                        </div>
+                    </div>
+                    <!-- Legenda soglie -->
+                    <div
+                        style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted); margin-bottom:6px;">
+                        <span>0%</span><span style="color:#10b981;">60% ✓</span><span style="color:#f59e0b;">80%
+                            ⚠</span><span>100%+</span>
+                    </div>
+                    <div id="ltvMessage"
+                        style="font-size:0.78rem; padding:7px 10px; border-radius:6px; font-weight:500;"></div>
+                    <small style="display:block; color:var(--text-muted); font-size:0.7rem; margin-top:6px;">Il grafico
+                        nel centro mostra l'evoluzione LTV nel tempo.</small>
+                </div>
+
+                <hr>
+
+                <h3>Heatmap Interessi <span class="info-icon"
+                        data-tooltip="Visualizza graficamente come il peso degli interessi decresce nel tempo (ammortamento alla francese).">i</span>
+                </h3>
+                <small
+                    style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom: 8px;">Distribuzione
+                    degli interessi pagati per anno.</small>
+                <div id="interestHeatmapContainer"
+                    style="display: flex; gap: 2px; height: 32px; background: rgba(0,0,0,0.2); border-radius: 4px; overflow: hidden; margin-bottom: 24px;"
+                    data-tooltip="Ogni blocco è un anno. Più il rosso è intenso, maggiore è il peso degli interessi in quel periodo.">
+                </div>
+
+                <hr>
+
+                <h3>Salvataggio & Confronto</h3>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button id="saveScenario1Btn" class="btn btn-add" style="flex: 1; padding: 8px;">Salva
+                        1</button>
+                    <button id="loadScenario1Btn" class="btn btn-add"
+                        style="flex: 1; padding: 8px; border-style: dashed;">Carica 1</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="saveScenario2Btn" class="btn btn-add" style="flex: 1; padding: 8px;">Salva
+                        2</button>
+                    <button id="loadScenario2Btn" class="btn btn-add"
+                        style="flex: 1; padding: 8px; border-style: dashed;">Carica 2</button>
+                </div>
 
             </div>
         </div>
@@ -333,6 +546,65 @@
     <script src="js/data/euribor_data.js"></script>
     <script src="js/euribor.js"></script>
     <script src="js/script.js"></script>
+
+    <!-- Floating Tooltip System -->
+    <div id="floatingTooltip" class="floating-tooltip"></div>
+    <script>
+        (function () {
+            const tip = document.getElementById('floatingTooltip');
+            let hideTimeout = null;
+
+            document.addEventListener('mouseover', function (e) {
+                const el = e.target.closest('[data-tooltip]');
+                if (!el) return;
+                clearTimeout(hideTimeout);
+                tip.textContent = el.getAttribute('data-tooltip');
+
+                // Position relative to viewport
+                const rect = el.getBoundingClientRect();
+                const tipW = 260;
+                const tipH = tip.offsetHeight || 60;
+
+                // Show briefly to measure
+                tip.style.visibility = 'hidden';
+                tip.classList.add('visible');
+                tip.style.left = '0px';
+                tip.style.top = '0px';
+                document.body.appendChild(tip); // ensure in DOM
+                const actualH = tip.offsetHeight;
+                tip.classList.remove('visible');
+                tip.style.visibility = '';
+
+                // Default: above the element
+                let top = rect.top - actualH - 8;
+                let left = rect.right - tipW;
+
+                // If it goes above the viewport, show below
+                if (top < 8) {
+                    top = rect.bottom + 8;
+                }
+
+                // Clamp horizontally
+                if (left < 8) left = 8;
+                if (left + tipW > window.innerWidth - 8) {
+                    left = window.innerWidth - tipW - 8;
+                }
+
+                tip.style.left = left + 'px';
+                tip.style.top = top + 'px';
+                tip.classList.add('visible');
+            });
+
+            document.addEventListener('mouseout', function (e) {
+                const el = e.target.closest('[data-tooltip]');
+                if (!el) return;
+                hideTimeout = setTimeout(function () {
+                    tip.classList.remove('visible');
+                }, 80);
+            });
+        })();
+    </script>
+
 </body>
 
 </html>

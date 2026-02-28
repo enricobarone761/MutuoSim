@@ -51,20 +51,26 @@ body {
     min-height: 100vh;
 }
 
+body {
+    overflow-x: auto;
+    /* Allow horizontal scroll if needed */
+}
+
 .container {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 1600px;
     margin: 0 auto;
     padding: 24px;
     gap: 24px;
+    justify-content: center;
 }
 
 @media (min-width: 900px) {
     .container {
         flex-direction: row;
         align-items: flex-start;
+        flex-wrap: nowrap;
     }
 
     .results-section {
@@ -79,14 +85,33 @@ body {
 
 /* Sections */
 .input-section {
-    flex: 1;
-    min-width: 320px;
-    max-width: 400px;
+    flex: 0 0 400px;
+    /* Fixed width */
+}
+
+.advanced-section {
+    flex: 0 0 400px;
+    /* Fixed width, identical to left */
+    transition: max-width 0.3s ease, padding 0.3s ease, margin 0.3s ease, opacity 0.3s ease, flex-basis 0.3s ease;
+    opacity: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 48px);
+    position: sticky;
+    top: 24px;
+}
+
+.advanced-section.collapsed {
+    flex: 0 0 0px;
+    max-width: 0px;
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
 }
 
 .results-section {
-    flex: 2;
-    min-width: 0;
+    flex: 0 0 1000px;
+    /* Fixed width so chart never resizes */
 }
 
 /* Cards */
@@ -659,6 +684,65 @@ select:focus {
 
 #calcYearsFromRataBtn svg {
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tooltip System */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    min-height: 15px;
+    flex-shrink: 0;
+    background-color: rgba(148, 163, 184, 0.2);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 50%;
+    margin-left: 5px;
+    cursor: help;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.info-icon:hover {
+    background-color: var(--accent-blue);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Floating JS tooltip */
+.floating-tooltip {
+    position: fixed;
+    background-color: #0f172a;
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    font-family: 'Inter', sans-serif;
+    width: 260px;
+    line-height: 1.55;
+    text-align: left;
+    white-space: normal;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 99999;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.floating-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 #calcYearsFromRataBtn:hover svg {
