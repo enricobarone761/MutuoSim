@@ -23,11 +23,11 @@ function addRatePeriod(startMonth = 1, endMonth = 12, rate = 4.0) {
     row.innerHTML = `
         <div>
             <label>Mese Inizio</label>
-            <input type="number" class="period-start" value="${startMonth}" min="1" step="1">
+            <input type="number" class="period-start" value="${startMonth}" min="1" max="360" step="1">
         </div>
         <div>
             <label>Mese Fine</label>
-            <input type="number" class="period-end" value="${endMonth}" min="1" step="1">
+            <input type="number" class="period-end" value="${endMonth}" min="1" max="360" step="1">
         </div>
         <div>
             <label>Tasso (%)</label>
@@ -95,11 +95,11 @@ function addExtraPayment() {
         <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end;">
             <div class="input-group" style="flex: 1; margin-bottom: 0;">
                 <label>Inizio Mese <span style="font-weight: 400; font-size: 0.75rem;">(0=Subito)</span></label>
-                <input type="number" class="extra-start" value="0" step="1" min="0">
+                <input type="number" class="extra-start" value="0" step="1" min="0" max="360">
             </div>
             <div class="input-group" style="flex: 1; margin-bottom: 0;">
                 <label>Durata <span style="font-weight: 400; font-size: 0.75rem;">(Anni, 0=Sempre)</span></label>
-                <input type="number" class="extra-duration" value="0" step="1" min="0">
+                <input type="number" class="extra-duration" value="0" step="1" min="0" max="30">
             </div>
         </div>
         <div class="input-group" style="margin-bottom: 0;">
@@ -175,7 +175,7 @@ function addCapitalAddition() {
             </div>
             <div style="flex: 1.2;">
                 <label style="font-size: 0.7rem; margin-bottom: 2px; color: var(--text-muted);">Mese</label>
-                <input type="number" class="capital-start" value="12" step="1" min="1" style="padding: 4px 8px; font-size: 0.85rem;">
+                <input type="number" class="capital-start" value="12" step="1" min="1" max="360" style="padding: 4px 8px; font-size: 0.85rem;">
             </div>
             <button class="btn-remove" onclick="removeCapitalAddition('${id}')" title="Rimuovi" 
                     style="background: transparent; border: none; color: #f43f5e; cursor: pointer; padding: 4px; font-size: 1rem; margin-top: 14px;">✕</button>
@@ -238,8 +238,15 @@ function updateHybridUI(results) {
 /**
  * Tabella Sensibilità e Reset
  */
-function updateSensitivityTable(P, years, baseRate) {
-    const yearOffsets = [5, 0, -5];
+function updateSensitivityTable(P, years, baseRate, offsetRata = 0) {
+    let yearOffsets = [5, 0, -5];
+
+    // Se siamo a 30 anni, spostiamo gli offset per non superare il limite (es. mostra 30, 25, 20)
+    if (years + yearOffsets[0] > 30) {
+        const diff = (years + yearOffsets[0]) - 30;
+        yearOffsets = yearOffsets.map(o => o - diff);
+    }
+
     const rateOffsets = [0.5, 0, -0.5];
     const cellIds = [
         ['cell-plus5y-plus05r', 'cell-curr-y-plus05r', 'cell-minus5y-plus05r'],
@@ -274,7 +281,7 @@ function updateSensitivityTable(P, years, baseRate) {
             const rate = baseRate + rateOffsets[r];
             const cell = document.getElementById(cellIds[r][c]);
             if (y <= 0 || rate < 0) cell.textContent = 'N/A';
-            else cell.textContent = fmtCurr(calcRata(P, y, rate));
+            else cell.textContent = fmtCurr(calcRata(P, y, rate) + offsetRata);
         }
     }
 }

@@ -28,18 +28,38 @@ rateInput.addEventListener('input', calculate);
 
 if (calcYearsFromRataBtn) {
     calcYearsFromRataBtn.addEventListener('click', () => {
-        const P = parseFloat(amountInput.value) || 0;
+        let P = parseFloat(amountInput.value) || 0;
         const target = parseFloat(targetRataInput.value) || 0;
         const rate = parseFloat(rateInput.value) || 0;
 
         if (P <= 0 || target <= 0) return;
 
+        let loanRata = 0;
+        const isHybridActive = hybridToggle && hybridToggle.checked;
+        if (isHybridActive) {
+            const hAmount = parseFloat(hybridLoanAmountInput.value) || 0;
+            const hRate = parseFloat(hybridLoanRateInput.value) || 0;
+            const hYears = parseInt(hybridLoanYearsInput.value) || 0;
+            const hMonths = Math.max(1, hYears * 12);
+
+            const mortgageAmount = Math.max(0, P - hAmount);
+            const actualLoanAmount = Math.min(P, hAmount);
+
+            const monthlyLoanRate = hRate / 100 / 12;
+            if (monthlyLoanRate === 0) {
+                loanRata = actualLoanAmount / hMonths;
+            } else {
+                loanRata = (actualLoanAmount * monthlyLoanRate) / (1 - Math.pow(1 + monthlyLoanRate, -hMonths));
+            }
+            P = mortgageAmount;
+        }
+
         let bestY = 1;
         let minDiff = Infinity;
 
-        // Cerchiamo la durata (1-50 anni) che si avvicina di più alla rata target
-        for (let y = 1; y <= 50; y++) {
-            const r = calcRata(P, y, rate);
+        // Cerchiamo la durata (1-30 anni) che si avvicina di più alla rata target
+        for (let y = 1; y <= 30; y++) {
+            const r = calcRata(P, y, rate) + loanRata;
             const diff = Math.abs(r - target);
             if (diff < minDiff) {
                 minDiff = diff;
@@ -160,7 +180,11 @@ if (hybridToggle) {
 
 function calculate() {
     const P = parseFloat(amountInput.value) || 0;
-    const years = parseInt(yearsInput.value) || 0;
+    let years = parseInt(yearsInput.value) || 0;
+    if (years > 30) {
+        years = 30;
+        yearsInput.value = 30;
+    }
     const baseRate = parseFloat(rateInput.value) || 0;
 
     if (rateNumericInput && document.activeElement !== rateNumericInput) {
@@ -194,7 +218,11 @@ function calculate() {
     if (isHybridActive) {
         const hAmount = parseFloat(hybridLoanAmountInput.value) || 0;
         const hRate = parseFloat(hybridLoanRateInput.value) || 0;
-        const hYears = parseInt(hybridLoanYearsInput.value) || 0;
+        let hYears = parseInt(hybridLoanYearsInput.value) || 0;
+        if (hYears > 30) {
+            hYears = 30;
+            hybridLoanYearsInput.value = 30;
+        }
         simP = Math.max(0, P - hAmount);
         loanMonths = hYears * 12;
 
@@ -220,12 +248,19 @@ function calculate() {
 
     // Se ibrido attivo, aggiungiamo la rata del prestito al piano e ai dati del grafico
     if (isHybridActive && loanRata > 0) {
+        let hybridMaxRata = 0;
         results.amortizationSchedule.forEach(row => {
             if (row.month <= loanMonths) {
                 row.payment += loanRata;
                 row.totalPaid += loanRata;
             }
+            if (row.payment > hybridMaxRata) hybridMaxRata = row.payment;
         });
+        results.maxRataSeen = hybridMaxRata;
+        if (results.amortizationSchedule.length > 0) {
+            results.firstRata = results.amortizationSchedule[0].payment;
+        }
+
         results.fullDataActualPayment = results.fullDataActualPayment.map((val, idx) => {
             return (idx < loanMonths) ? val + loanRata : val;
         });
@@ -235,12 +270,9 @@ function calculate() {
         });
 
         // Ricalcoliamo interessi totali per includere quelli del prestito (per gli output in UI)
-        const totalLoanInterest = (loanRata * loanMonths) - Math.min(P, parseFloat(hybridLoanAmountInput.value) || 0);
+        const hAmount = parseFloat(hybridLoanAmountInput.value) || 0;
+        const totalLoanInterest = (loanRata * loanMonths) - Math.min(P, hAmount);
         results.totalInterestPaid += totalLoanInterest;
-
-        // Aggiorniamo rata iniziale e massima per la UI
-        results.firstRata += loanRata;
-        if (results.maxRataSeen < results.firstRata) results.maxRataSeen = results.firstRata;
     }
 
     const interestSaved = Math.max(0, baselineResults.totalInterestPaid - results.totalInterestPaid);
@@ -342,7 +374,7 @@ function calculate() {
         });
     }
 
-    updateSensitivityTable(P, years, baseRate);
+    updateSensitivityTable(simP, years, baseRate, loanRata);
 
     // --- Calcolo Soluzione Ibrida ---
     if (hybridToggle && hybridToggle.checked) {
