@@ -623,7 +623,9 @@ function calculate() {
         // Sostenibilità (DTI)
         const mIncome = parseFloat(monthlyIncome.value) || 0;
         if (mIncome > 0) {
-            const dti = ((results.firstRata + cAssic) / mIncome) * 100;
+            // results.firstRata include già la rata del prestito se l'ibrido è attivo
+            const totalMonthlyPayment = results.firstRata + cAssic;
+            const dti = (totalMonthlyPayment / mIncome) * 100;
             outDti.innerText = dti.toFixed(1) + '%';
             if (dti > 33) {
                 outDti.style.color = '#f43f5e'; // Rosso
