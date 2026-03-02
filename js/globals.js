@@ -97,9 +97,31 @@ const dtiBox = document.getElementById('dtiBox');
 const outDti = document.getElementById('outDti');
 
 const propertyValue = document.getElementById('propertyValue');
+const showLtvOnChart = document.getElementById('showLtvOnChart');
 
-const saveScenario1Btn = document.getElementById('saveScenario1Btn');
-const loadScenario1Btn = document.getElementById('loadScenario1Btn');
-const saveScenario2Btn = document.getElementById('saveScenario2Btn');
-const loadScenario2Btn = document.getElementById('loadScenario2Btn');
+const scenariosContainer = document.getElementById('scenarios-container');
+const addScenarioBtn = document.getElementById('addScenarioBtn');
 const interestHeatmapContainer = document.getElementById('interestHeatmapContainer');
+
+// --- Data Inizio & Indicatore Oggi ---
+const startDateToggle = document.getElementById('startDateToggle');
+const startDateSection = document.getElementById('startDate-section');
+const startDateInput = document.getElementById('startDateInput');
+
+// --- Inflazione sul Costo Reale ---
+const inflationRateInput = document.getElementById('inflationRate');
+const inflationResultBox = document.getElementById('inflationResultBox');
+const outNominalTotal = document.getElementById('outNominalTotal');
+const outRealCostTotal = document.getElementById('outRealCostTotal');
+const inflationSavingNote = document.getElementById('inflationSavingNote');
+
+// --- Avanzamento Rimborso ---
+const repaymentProgressContainer = document.getElementById('repaymentProgressContainer');
+const repaymentProgressNoDate = document.getElementById('repaymentProgressNoDate');
+const repaymentProgressBar = document.getElementById('repaymentProgressBar');
+const outCurrentMonth = document.getElementById('outCurrentMonth');
+const outTotalMonths = document.getElementById('outTotalMonths');
+const outRepaymentPercent = document.getElementById('outRepaymentPercent');
+const outRepaymentEndDate = document.getElementById('outRepaymentEndDate');
+
+

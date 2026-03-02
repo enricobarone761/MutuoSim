@@ -4,7 +4,7 @@
  * ===========================================================================
  *  Orchestratore dell'applicazione. Gestisce i riferimenti DOM, gli event
  *  listeners e il ciclo di aggiornamento calculate().
- * 
+ *
  *  Dipendenze (caricate nell'HTML):
  *  - utils.js
  *  - engine.js (runSimulation, calcRata)
@@ -57,7 +57,6 @@ if (calcYearsFromRataBtn) {
         let bestY = 1;
         let minDiff = Infinity;
 
-        // Cerchiamo la durata (1-30 anni) che si avvicina di più alla rata target
         for (let y = 1; y <= 30; y++) {
             const r = calcRata(P, y, rate) + loanRata;
             const diff = Math.abs(r - target);
@@ -70,7 +69,6 @@ if (calcYearsFromRataBtn) {
         yearsInput.value = bestY;
         calculate();
 
-        // Effetto grafico feedback
         calcYearsFromRataBtn.style.color = '#10b981';
         setTimeout(() => {
             calcYearsFromRataBtn.style.color = '#a855f7';
@@ -106,21 +104,19 @@ rataBox.addEventListener('click', function () {
 
 if (openAmortizationBtn && closeAmortizationBtn && amortizationDrawer) {
     openAmortizationBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evita che il click si propaghi al document e chiuda subito il drawer
+        e.stopPropagation();
         amortizationDrawer.classList.add('open');
     });
     closeAmortizationBtn.addEventListener('click', () => {
         amortizationDrawer.classList.remove('open');
     });
 
-    // Chiudi cliccando fuori dal drawer
     document.addEventListener('click', (e) => {
         if (amortizationDrawer.classList.contains('open') && !amortizationDrawer.contains(e.target)) {
             amortizationDrawer.classList.remove('open');
         }
     });
 
-    // Evita che i click all'interno del drawer lo chiudano
     amortizationDrawer.addEventListener('click', (e) => {
         e.stopPropagation();
     });
@@ -174,6 +170,27 @@ if (hybridToggle) {
     hybridLoanYearsInput.addEventListener('input', calculate);
 }
 
+// --- Event Listeners Data Inizio & Indicatore Oggi ---
+if (startDateToggle) {
+    startDateToggle.addEventListener('change', function () {
+        startDateSection.style.display = this.checked ? 'block' : 'none';
+        calculate();
+    });
+}
+if (startDateInput) {
+    startDateInput.addEventListener('change', calculate);
+}
+const startDateTodayBtn = document.getElementById('startDateTodayBtn');
+if (startDateTodayBtn) {
+    startDateTodayBtn.addEventListener('click', function () {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        startDateInput.value = `${yyyy}-${mm}`;
+        calculate();
+    });
+}
+
 // --- Event Listeners Avanzate ---
 if (toggleAdvancedBtn) {
     toggleAdvancedBtn.addEventListener('click', () => {
@@ -197,16 +214,107 @@ if (toggleAdvancedBtn) {
     if (investmentRate) investmentRate.addEventListener('input', calculate);
     if (monthlyIncome) monthlyIncome.addEventListener('input', calculate);
     if (propertyValue) propertyValue.addEventListener('input', calculate);
+    if (inflationRateInput) inflationRateInput.addEventListener('input', calculate);
+    if (showLtvOnChart) showLtvOnChart.addEventListener('change', calculate);
 
-    if (saveScenario1Btn) saveScenario1Btn.addEventListener('click', () => saveScenario(1));
-    if (loadScenario1Btn) loadScenario1Btn.addEventListener('click', () => loadScenario(1));
-    if (saveScenario2Btn) saveScenario2Btn.addEventListener('click', () => saveScenario(2));
-    if (loadScenario2Btn) loadScenario2Btn.addEventListener('click', () => loadScenario(2));
+    if (addScenarioBtn) addScenarioBtn.addEventListener('click', addScenario);
 }
 
-// --- Funzioni Salvataggio e Caricamento ---
-function saveScenario(slot) {
-    const data = {
+/* ==========================================================================
+ *  DYNAMIC SCENARIOS MANAGEMENT
+ * ========================================================================== */
+
+let scenarios = [];
+
+function initScenarios() {
+    const saved = localStorage.getItem('mutuosim_dynamic_scenarios');
+    if (saved) {
+        try {
+            scenarios = JSON.parse(saved);
+        } catch (e) {
+            console.error('Error loading scenarios', e);
+            scenarios = [];
+        }
+    }
+    renderScenarios();
+}
+
+function renderScenarios() {
+    if (!scenariosContainer) return;
+    scenariosContainer.innerHTML = '';
+
+    if (scenarios.length === 0) {
+        scenariosContainer.innerHTML = `
+            <div style="text-align:center; padding: 20px; color:var(--text-muted); font-size:0.85rem; border:1px dashed var(--border-color); border-radius: var(--border-radius);">
+                Nessun scenario salvato.
+            </div>`;
+    }
+
+    scenarios.forEach(scenario => {
+        const row = document.createElement('div');
+        row.className = 'scenario-row';
+        row.dataset.id = scenario.id;
+
+        row.innerHTML = `
+            <div class="scenario-row-header">
+                <input type="text" class="scenario-name-input" value="${scenario.name}" placeholder="Nome scenario...">
+                <button class="btn scenario-btn-delete" title="Elimina scenario">✕</button>
+            </div>
+            <div class="scenario-actions">
+                <button class="btn scenario-btn btn-add" style="border-style: solid;" onclick="saveToScenario(${scenario.id})">
+                    💾 Salva
+                </button>
+                <button class="btn scenario-btn btn-add" style="border-style: dashed;" onclick="loadFromScenario(${scenario.id})">
+                    📂 Carica
+                </button>
+            </div>
+        `;
+
+        const nameInput = row.querySelector('.scenario-name-input');
+        nameInput.addEventListener('change', (e) => {
+            renameScenario(scenario.id, e.target.value);
+        });
+
+        const deleteBtn = row.querySelector('.scenario-btn-delete');
+        deleteBtn.addEventListener('click', () => {
+            deleteScenario(scenario.id);
+        });
+
+        scenariosContainer.appendChild(row);
+    });
+}
+
+function addScenario() {
+    const id = Date.now();
+    scenarios.push({
+        id: id,
+        name: `Scenario ${scenarios.length + 1}`,
+        data: null
+    });
+    saveScenariosToStorage();
+    renderScenarios();
+}
+
+function deleteScenario(id) {
+    if (!confirm('Eliminare questo scenario?')) return;
+    scenarios = scenarios.filter(s => s.id !== id);
+    saveScenariosToStorage();
+    renderScenarios();
+}
+
+function renameScenario(id, newName) {
+    const scenario = scenarios.find(s => s.id === id);
+    if (scenario) {
+        scenario.name = newName;
+        saveScenariosToStorage();
+    }
+}
+
+function saveToScenario(id) {
+    const scenario = scenarios.find(s => s.id === id);
+    if (!scenario) return;
+
+    scenario.data = {
         amount: amountInput.value,
         years: yearsInput.value,
         rate: rateInput.value,
@@ -217,56 +325,76 @@ function saveScenario(slot) {
         costAssicurazione: costAssicurazione.value,
         investmentRate: investmentRate.value,
         monthlyIncome: monthlyIncome.value,
-        propertyValue: propertyValue.value
+        propertyValue: propertyValue.value,
+        inflationRate: inflationRateInput ? inflationRateInput.value : '2.0',
+        startDateToggle: startDateToggle ? startDateToggle.checked : false,
+        startDate: startDateInput ? startDateInput.value : ''
     };
-    localStorage.setItem('mutuosim_scenario_' + slot, JSON.stringify(data));
-    const btn = slot === 1 ? saveScenario1Btn : saveScenario2Btn;
-    const oldText = btn.textContent;
-    btn.textContent = 'Salvato!';
-    btn.style.background = '#10b981';
-    btn.style.color = '#fff';
+
+    saveScenariosToStorage();
+
+    const row = scenariosContainer.querySelector(`[data-id="${id}"]`);
+    const saveBtn = row.querySelector('button[onclick*="saveToScenario"]');
+    const oldText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '✅ Salvato';
+    saveBtn.style.color = '#10b981';
     setTimeout(() => {
-        btn.textContent = oldText;
-        btn.style.background = '';
-        btn.style.color = '';
+        saveBtn.innerHTML = oldText;
+        saveBtn.style.color = '';
     }, 1500);
 }
 
-function loadScenario(slot) {
-    const dataStr = localStorage.getItem('mutuosim_scenario_' + slot);
-    if (dataStr) {
-        try {
-            const data = JSON.stringify(dataStr);
-            const parsed = JSON.parse(dataStr);
-            if (parsed.amount) amountInput.value = parsed.amount;
-            if (parsed.years) yearsInput.value = parsed.years;
-            if (parsed.rate) {
-                rateInput.value = parsed.rate;
-                if (rateNumericInput) rateNumericInput.value = parsed.rate;
-            }
-            if (parsed.costIstruttoria) costIstruttoria.value = parsed.costIstruttoria;
-            if (parsed.costPerizia) costPerizia.value = parsed.costPerizia;
-            if (parsed.costNotaio) costNotaio.value = parsed.costNotaio;
-            if (parsed.costImposta) costImposta.value = parsed.costImposta;
-            if (parsed.costAssicurazione) costAssicurazione.value = parsed.costAssicurazione;
-            if (parsed.investmentRate) investmentRate.value = parsed.investmentRate;
-            if (parsed.monthlyIncome) monthlyIncome.value = parsed.monthlyIncome;
-            if (parsed.propertyValue) propertyValue.value = parsed.propertyValue;
-            calculate();
-
-            const btn = slot === 1 ? loadScenario1Btn : loadScenario2Btn;
-            const oldText = btn.textContent;
-            btn.textContent = 'Caricato!';
-            btn.style.borderColor = '#10b981';
-            btn.style.color = '#10b981';
-            setTimeout(() => {
-                btn.textContent = oldText;
-                btn.style.borderColor = '';
-                btn.style.color = '';
-            }, 1500);
-        } catch (e) { console.error(e); }
+function loadFromScenario(id) {
+    const scenario = scenarios.find(s => s.id === id);
+    if (!scenario || !scenario.data) {
+        alert('Nessun dato salvato in questo scenario.');
+        return;
     }
+
+    const data = scenario.data;
+    if (data.amount) amountInput.value = data.amount;
+    if (data.years) yearsInput.value = data.years;
+    if (data.rate) {
+        rateInput.value = data.rate;
+        if (rateNumericInput) rateNumericInput.value = data.rate;
+    }
+    if (data.costIstruttoria) costIstruttoria.value = data.costIstruttoria;
+    if (data.costPerizia) costPerizia.value = data.costPerizia;
+    if (data.costNotaio) costNotaio.value = data.costNotaio;
+    if (data.costImposta) costImposta.value = data.costImposta;
+    if (data.costAssicurazione) costAssicurazione.value = data.costAssicurazione;
+    if (data.investmentRate) investmentRate.value = data.investmentRate;
+    if (data.monthlyIncome) monthlyIncome.value = data.monthlyIncome;
+    if (data.propertyValue) propertyValue.value = data.propertyValue;
+    if (data.inflationRate && inflationRateInput) inflationRateInput.value = data.inflationRate;
+    if (startDateToggle && data.startDateToggle !== undefined) {
+        startDateToggle.checked = data.startDateToggle;
+        startDateSection.style.display = data.startDateToggle ? 'block' : 'none';
+    }
+    if (startDateInput && data.startDate) startDateInput.value = data.startDate;
+
+    calculate();
+
+    const row = scenariosContainer.querySelector(`[data-id="${id}"]`);
+    const loadBtn = row.querySelector('button[onclick*="loadFromScenario"]');
+    const oldText = loadBtn.innerHTML;
+    loadBtn.innerHTML = '✨ Caricato';
+    loadBtn.style.color = '#10b981';
+    setTimeout(() => {
+        loadBtn.innerHTML = oldText;
+        loadBtn.style.color = '';
+    }, 1500);
 }
+
+function saveScenariosToStorage() {
+    localStorage.setItem('mutuosim_dynamic_scenarios', JSON.stringify(scenarios));
+}
+
+// Make globally available for onclick
+window.saveToScenario = saveToScenario;
+window.loadFromScenario = loadFromScenario;
+
+initScenarios();
 
 /* ==========================================================================
  *  3. CALCULATE() — Orchestratore
@@ -340,7 +468,6 @@ function calculate() {
         generateChart: true
     });
 
-    // Se ibrido attivo, aggiungiamo la rata del prestito al piano e ai dati del grafico
     if (isHybridActive && loanRata > 0) {
         let hybridMaxRata = 0;
         results.amortizationSchedule.forEach(row => {
@@ -358,12 +485,10 @@ function calculate() {
         results.fullDataActualPayment = results.fullDataActualPayment.map((val, idx) => {
             return (idx < loanMonths) ? val + loanRata : val;
         });
-        // Aggiorniamo anche la rata teorica per il grafico se necessario
         results.fullDataPayment = results.fullDataPayment.map((val, idx) => {
             return (idx < loanMonths) ? val + loanRata : val;
         });
 
-        // Ricalcoliamo interessi totali per includere quelli del prestito (per gli output in UI)
         const hAmount = parseFloat(hybridLoanAmountInput.value) || 0;
         const totalLoanInterest = (loanRata * loanMonths) - Math.min(P, hAmount);
         results.totalInterestPaid += totalLoanInterest;
@@ -376,6 +501,33 @@ function calculate() {
     if (hasExtras && results.actualMonths < totalMonths) {
         savedMonths = totalMonths - results.actualMonths;
     }
+
+    // --- Data Inizio & Mese Corrente ---
+    let startDate = null;
+    let currentMonthIndex = null;
+    const startDateActive = startDateToggle && startDateToggle.checked && startDateInput && startDateInput.value;
+    if (startDateActive) {
+        startDate = new Date(startDateInput.value + '-01');
+        const nowSystem = new Date();
+        const now = new Date(nowSystem.getFullYear(), nowSystem.getMonth(), 1);
+        const diffMs = now - startDate;
+        const diffMonths = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.44));
+        if (diffMonths >= 0 && diffMonths <= results.actualMonths) {
+            currentMonthIndex = diffMonths;
+        }
+    }
+
+    // Salva startDate e currentMonthIndex in lastFullResults per handleRangeChange
+    results.startDate = startDate;
+    results.currentMonthIndex = currentMonthIndex;
+
+    // LTV
+    const propValInitial = parseFloat(propertyValue.value) || 0;
+    // propertyValueRaw è sempre valorizzato (per UI box e barra)
+    results.propertyValueRaw = propValInitial;
+    // propertyValue nel grafico: solo se il toggle "Mostra nel grafico" è attivo
+    const ltvOnChart = showLtvOnChart && showLtvOnChart.checked;
+    results.propertyValue = (propValInitial > 0 && ltvOnChart) ? propValInitial : null;
 
     lastFullResults = results;
 
@@ -399,7 +551,8 @@ function calculate() {
     chartRangeMax.value = currentMax;
     chartRangeMax.oldMax = maxMonths;
 
-    updateRangeUI();
+    // updateRangeUI gestisce le label (con date reali se disponibili)
+    updateRangeUI(startDate);
 
     // Aggiornamento Output UI
     outInitialPayment.innerText = fmtCurr(results.firstRata);
@@ -449,7 +602,10 @@ function calculate() {
     updateChart(
         results.fullLabels, results.fullDataBalance, results.fullDataInterest,
         results.fullDataPayment, results.fullDataActualPayment, results.fullDataRate,
-        results.historicalEndMonth
+        results.historicalEndMonth,
+        true,
+        startDate,
+        currentMonthIndex
     );
 
     const tbody = document.querySelector('#amortizationTable tbody');
@@ -481,25 +637,15 @@ function calculate() {
         const initialCosts = cIstru + cPeri + cNot + cImp;
         const totalAssicurazione = cAssic * results.actualMonths;
 
-        // Aggiorna "Totale Pagato" con i costi e l'assicurazione
         const baseTotalPaid = P + results.totalInterestPaid + totalAssicurazione + initialCosts;
         outTotalPaid.innerText = fmtCurr(baseTotalPaid);
 
-        // Stima TAEG via approssimazione IRR (Newton-Raphson)
-        // Il TAEG è il tasso mensile r tale per cui:
-        //   P_netto = Σ (rata_mensile + assicurazione) / (1 + r)^t  per t=1..n
-        // dove P_netto = P - costi_iniziali (capitale effettivamente ricevuto al netto delle spese anticipate)
+        // TAEG
         const P_netto = P - initialCosts;
         if (P_netto > 0 && results.actualMonths > 0) {
-            // Costruiamo i flussi di cassa mensili (rata + assicurazione)
-            // Per semplicità usiamo la rata media (molto simile per ammortamento francese fisso)
             const avgPayment = (results.totalInterestPaid + P) / results.actualMonths + cAssic;
             const n = results.actualMonths;
-
-            // Newton-Raphson per trovare il tasso mensile r
-            // f(r) = P_netto - Σ avgPayment/(1+r)^t = 0
-            // Per rendita: P_netto = avgPayment * [1 - (1+r)^-n] / r
-            let r = baseRate / 100 / 12; // stima iniziale
+            let r = baseRate / 100 / 12;
             for (let iter = 0; iter < 100; iter++) {
                 const pow = Math.pow(1 + r, n);
                 const f = P_netto - avgPayment * (1 - 1 / pow) / r;
@@ -510,43 +656,37 @@ function calculate() {
                 const r_new = r - f / df;
                 if (Math.abs(r_new - r) < 1e-10) { r = r_new; break; }
                 r = r_new;
-                if (r < 0) { r = 0.0001; } // salvaguardia
+                if (r < 0) { r = 0.0001; }
             }
-            const taeg = (Math.pow(1 + r, 12) - 1) * 100; // da mensile a annuale effettivo
+            const taeg = (Math.pow(1 + r, 12) - 1) * 100;
             outTaeg.innerText = (isFinite(taeg) && taeg > 0) ? taeg.toFixed(2) + '%' : '--';
         } else {
             outTaeg.innerText = '--';
         }
 
-        // Calcolo Detrazione 19%
+        // Detrazione
         if (calcDetrazione && calcDetrazione.checked) {
             let totalDetrazione = 0;
-            // Raggruppa gli interessi pagati per anno (12 mesi)
             let currentYearInterest = 0;
             results.amortizationSchedule.forEach(row => {
                 currentYearInterest += row.interest;
                 if (row.month % 12 === 0 || row.month === results.actualMonths) {
-                    const detraibile = Math.min(currentYearInterest, 4000); // Max 4000€ l'anno
-                    totalDetrazione += detraibile * 0.19; // 19%
+                    const detraibile = Math.min(currentYearInterest, 4000);
+                    totalDetrazione += detraibile * 0.19;
                     currentYearInterest = 0;
                 }
             });
             outDetrazioneTotale.innerText = fmtCurr(totalDetrazione);
         }
 
-        // Calcolo Investimento Alternativo
-        // Approccio CORRETTO: confronto simmetrico allo stesso orizzonte temporale.
-        // - FV_invest : ogni extra capitalizzato al tasso d'investimento fino a baselineResults.actualMonths
-        // - FV_prepay : stesso extra capitalizzato al TAN del mutuo fino a baselineResults.actualMonths
-        //   → representa il "guadagno equivalente" dell'estinzione anticipata
-        // Al tasso uguale: FV_invest = FV_prepay (se diversi è solo per il differenziale di tasso)
+        // Investimento Alternativo
         const invRateAnn = parseFloat(investmentRate.value) || 0;
         const invRateMo = invRateAnn / 100 / 12;
-        const mortRateMo = baseRate / 100 / 12; // tasso mensile del mutuo
-        const baseN = baselineResults.actualMonths; // orizzonte comune
+        const mortRateMo = baseRate / 100 / 12;
+        const baseN = baselineResults.actualMonths;
 
-        let futureValue = 0;   // FV se si investe
-        let fvPrepay = 0;   // FV equivalente se si estingue (capitalizzato al tasso mutuo)
+        let futureValue = 0;
+        let fvPrepay = 0;
 
         const investmentNote = document.getElementById('investmentNote');
         const investmentVerdict = document.getElementById('investmentVerdict');
@@ -565,11 +705,9 @@ function calculate() {
             if (outInvestmentSaving) outInvestmentSaving.innerText = fmtCurr(fvPrepay);
             if (investmentNote) investmentNote.style.display = 'none';
 
-            // Verdetto: confronto diretto tra i due FV allo stesso orizzonte
             if (investmentVerdict) {
                 investmentVerdict.style.display = 'block';
                 if (Math.abs(futureValue - fvPrepay) < 1) {
-                    // Tassi praticamente uguali
                     investmentVerdict.textContent = `⚖️ Pareggio: al ${invRateAnn.toFixed(1)}% le due strategie sono equivalenti (uguale al TAN del mutuo).`;
                     investmentVerdict.style.background = 'rgba(148,163,184,0.1)';
                     investmentVerdict.style.color = 'var(--text-muted)';
@@ -590,6 +728,44 @@ function calculate() {
             if (outInvestmentSaving) outInvestmentSaving.innerText = '--';
             if (investmentNote) investmentNote.style.display = 'block';
             if (investmentVerdict) investmentVerdict.style.display = 'none';
+        }
+
+        // ===== INFLAZIONE SUL COSTO REALE =====
+        const inflRate = parseFloat(inflationRateInput ? inflationRateInput.value : 0) || 0;
+        if (inflationResultBox) {
+            if (inflRate > 0) {
+                // Tasso mensile geometrico: (1+i)^(1/12) - 1
+                const inflRateMo = Math.pow(1 + (inflRate / 100), 1 / 12) - 1;
+                const todayIdx = currentMonthIndex || 0; // Se non indicato, riferimento inizio mutuo (Mese 0)
+
+                let realCost = 0;
+                results.amortizationSchedule.forEach(row => {
+                    const nominalPayment = row.payment + row.extra + cAssic;
+                    // Formula: PV_today = FV_m / (1 + i)^(m - today)
+                    // Se m < today: viene (1+i)^pos, quindi inflaziona il valore passato a oggi.
+                    // Se m > today: viene (1+i)^neg, quindi sconta il valore futuro a oggi.
+                    realCost += nominalPayment / Math.pow(1 + inflRateMo, row.month - todayIdx);
+                });
+
+                // Anche i costi iniziali vanno portati a "oggi" se il mutuo è iniziato nel passato
+                // (sono stati pagati al Mese 0)
+                const realInitialCosts = initialCosts / Math.pow(1 + inflRateMo, 0 - todayIdx);
+                realCost += realInitialCosts;
+
+                const nominalTotal = baseTotalPaid;
+                const saving = nominalTotal - realCost;
+                const savingPct = nominalTotal > 0 ? (saving / nominalTotal) * 100 : 0;
+
+                inflationResultBox.style.display = 'block';
+                if (outNominalTotal) outNominalTotal.textContent = fmtCurr(nominalTotal);
+                if (outRealCostTotal) outRealCostTotal.textContent = fmtCurr(realCost);
+                if (inflationSavingNote) {
+                    const timeframe = todayIdx > 0 ? "rispetto al potere d'acquisto di oggi" : "in euro del valore d'inizio mutuo";
+                    inflationSavingNote.textContent = `Con inflazione al ${inflRate.toFixed(1)}%, il mutuo "pesa" ${fmtCurr(saving)} meno in termini reali (−${savingPct.toFixed(1)}%) ${timeframe}.`;
+                }
+            } else {
+                inflationResultBox.style.display = 'none';
+            }
         }
 
         // Heatmap Interessi
@@ -620,25 +796,23 @@ function calculate() {
             }
         }
 
-        // Sostenibilità (DTI)
+        // DTI
         const mIncome = parseFloat(monthlyIncome.value) || 0;
         if (mIncome > 0) {
-            // results.firstRata include già la rata del prestito se l'ibrido è attivo
             const totalMonthlyPayment = results.firstRata + cAssic;
             const dti = (totalMonthlyPayment / mIncome) * 100;
             outDti.innerText = dti.toFixed(1) + '%';
             if (dti > 33) {
-                outDti.style.color = '#f43f5e'; // Rosso
+                outDti.style.color = '#f43f5e';
             } else {
-                outDti.style.color = '#10b981'; // Verde
+                outDti.style.color = '#10b981';
             }
         } else {
             outDti.innerText = '--';
         }
 
-        // LTV
-        const propVal = parseFloat(propertyValue.value) || 0;
-        results.propertyValue = propVal > 0 ? propVal : null;
+        // LTV — la UI usa sempre il valore grezzo, il grafico usa results.propertyValue
+        const propVal = results.propertyValueRaw || 0;
 
         const ltvResultBox = document.getElementById('ltvResultBox');
         const outLtvPercent = document.getElementById('outLtvPercent');
@@ -646,9 +820,6 @@ function calculate() {
         const ltvMessage = document.getElementById('ltvMessage');
 
         if (propVal > 0) {
-            // LTV iniziale corretto:
-            // - Ibrido: usiamo P (il totale finanziato sull'immobile = mutuo + prestito)
-            // - Aggiunte capitale: sommiamo tutte le erogazioni future (es. SAL per ristrutturazioni)
             const totalCapitalAdditions = capitalAdditionsList.reduce((sum, ca) => sum + (ca.amount || 0), 0);
             const totalFinanziato = P + totalCapitalAdditions;
             const ltv = (totalFinanziato / propVal) * 100;
@@ -688,6 +859,39 @@ function calculate() {
             }
         } else {
             if (ltvResultBox) ltvResultBox.style.display = 'none';
+        }
+
+        // ===== BARRA AVANZAMENTO RIMBORSO =====
+        if (repaymentProgressContainer && repaymentProgressNoDate) {
+            if (startDateActive && currentMonthIndex !== null && currentMonthIndex >= 0) {
+                repaymentProgressContainer.style.display = 'block';
+                repaymentProgressNoDate.style.display = 'none';
+
+                const pct = Math.min(100, (currentMonthIndex / results.actualMonths) * 100);
+                repaymentProgressBar.style.width = pct.toFixed(1) + '%';
+
+                if (outCurrentMonth) outCurrentMonth.textContent = currentMonthIndex;
+                if (outTotalMonths) outTotalMonths.textContent = results.actualMonths;
+                if (outRepaymentPercent) outRepaymentPercent.textContent = pct.toFixed(1) + '%';
+
+                // Colore percentuale
+                if (outRepaymentPercent) {
+                    if (pct < 33) outRepaymentPercent.style.color = '#10b981';
+                    else if (pct < 66) outRepaymentPercent.style.color = '#f59e0b';
+                    else outRepaymentPercent.style.color = '#fb923c';
+                }
+
+                // Data fine prevista
+                if (outRepaymentEndDate && startDate) {
+                    const endDate = new Date(startDate);
+                    endDate.setMonth(endDate.getMonth() + results.actualMonths - 1);
+                    const monthNames = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+                    outRepaymentEndDate.textContent = `Fine prevista: ${monthNames[endDate.getMonth()]} ${endDate.getFullYear()}`;
+                }
+            } else {
+                repaymentProgressContainer.style.display = 'none';
+                repaymentProgressNoDate.style.display = 'block';
+            }
         }
     }
 

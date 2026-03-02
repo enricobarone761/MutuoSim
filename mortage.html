@@ -180,21 +180,50 @@
                 </div>
 
                 <div id="hybrid-section" style="display:none; padding-top: 10px;">
-                    <div class="input-group">
-                        <label>Importo Prestito (€)</label>
-                        <input type="number" id="hybridLoanAmount" value="30000" step="1000">
-                    </div>
-                    <div class="input-group">
-                        <label>Tasso Prestito (TAEG %)</label>
-                        <input type="number" id="hybridLoanRate" value="7.5" step="0.1">
-                    </div>
-                    <div class="input-group">
-                        <label>Durata Prestito (Anni)</label>
-                        <input type="number" id="hybridLoanYears" value="10" step="1" min="1" max="30">
+                    <div class="hybrid-inputs-grid">
+                        <div class="input-group">
+                            <label>Importo (€)</label>
+                            <input type="number" id="hybridLoanAmount" value="30000" step="1000">
+                        </div>
+                        <div class="input-group">
+                            <label>Tasso (%)</label>
+                            <input type="number" id="hybridLoanRate" value="7.5" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label>Anni</label>
+                            <input type="number" id="hybridLoanYears" value="10" step="1" min="1" max="30">
+                        </div>
                     </div>
                 </div>
 
                 <hr style="margin: 20px 0; border: none; border-top: 1px solid rgba(255,255,255,0.1);">
+
+                <!-- Data Inizio Mutuo & Indicatore Oggi -->
+                <div class="toggle-container"
+                    style="background: rgba(251, 146, 60, 0.05); border-left: 4px solid #fb923c;">
+                    <input type="checkbox" id="startDateToggle" class="toggle-checkbox" style="accent-color: #fb923c;">
+                    <div>
+                        <label for="startDateToggle" style="margin:0; cursor:pointer; color: #fb923c;">Data Inizio &amp;
+                            Indicatore Oggi
+                            <span class="info-icon"
+                                data-tooltip="Mostra le date reali nel grafico (invece di 'Mese N') e segna il mese corrente con un indicatore animato.">i</span></label>
+                        <small
+                            style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Abilita
+                            etichette temporali e indicatore ora.</small>
+                    </div>
+                </div>
+                <div id="startDate-section" style="display:none; padding-bottom: 10px;">
+                    <div class="input-group">
+                        <label>Data Inizio Mutuo</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="month" id="startDateInput" value="" style="flex: 1;">
+                            <button id="startDateTodayBtn" title="Imposta mese corrente" style="background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.4);
+                                       color: #fb923c; border-radius: 6px; padding: 6px 10px; cursor: pointer;
+                                       font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+                                       transition: background 0.2s;">Oggi</button>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="top-actions">
                     <button id="openAmortizationBtn" class="btn btn-secondary"
@@ -282,6 +311,11 @@
                     </div>
                     <!-- Range Selector for Chart -->
                     <div class="range-selector-container">
+                        <div class="range-selector-header">
+                            <span class="range-selector-title">Intervallo</span>
+                            <button class="range-reset-btn" onclick="resetChartRange()"
+                                title="Visualizza l'intera durata del mutuo">↺ Reset</button>
+                        </div>
                         <div class="range-slider-wrapper">
                             <div id="rangeTrack" class="range-slider-track"></div>
                             <input type="range" id="chartRangeMin" class="range-slider-input" min="1" max="360"
@@ -290,17 +324,17 @@
                                 value="360">
                         </div>
                         <div class="range-label-container">
-                            <span id="rangeLabelStart">Inizio: Mese 1</span>
-                            <span id="rangeLabelEnd">Fine: Mese 360</span>
+                            <span id="rangeLabelStart">Mese 1</span>
+                            <span id="rangeLabelEnd">Mese 360</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Confronto Ibrido -->
                 <div id="hybrid-results"
-                    style="display: none; margin-top: 24px; border-top: 2px dashed rgba(168, 85, 247, 0.2); padding-top: 20px;">
-                    <h3 style="color: #a855f7; margin-bottom: 16px;">Confronto Soluzione Ibrida</h3>
-                    <div class="results-grid">
+                    style="display: none; margin-top: 20px; border-top: 1px dashed rgba(168, 85, 247, 0.2); padding-top: 16px;">
+                    <h3 style="color: #a855f7; margin-bottom: 12px; font-size: 1rem;">Confronto Ibrido</h3>
+                    <div class="results-grid hybrid-compact-grid">
                         <div class="result-box" style="border-color: rgba(168, 85, 247, 0.3);">
                             <span class="label">Rata Combinata (Mutuo + PL)</span>
                             <span class="value" id="outHybridCombinedRata">--</span>
@@ -475,8 +509,20 @@
                     </div>
                     <div id="ltvMessage"
                         style="font-size:0.78rem; padding:7px 10px; border-radius:6px; font-weight:500;"></div>
-                    <small style="display:block; color:var(--text-muted); font-size:0.7rem; margin-top:6px;">Il grafico
-                        nel centro mostra l'evoluzione LTV nel tempo.</small>
+                    <!-- Toggle mostra LTV nel grafico -->
+                    <div class="toggle-container"
+                        style="margin-top:10px; background: rgba(168, 85, 247, 0.05); border-left: 4px solid #a855f7;">
+                        <input type="checkbox" id="showLtvOnChart" class="toggle-checkbox"
+                            style="accent-color: #a855f7;">
+                        <div>
+                            <label for="showLtvOnChart"
+                                style="margin:0; cursor:pointer; color: #a855f7; font-size: 0.85rem;">Mostra nel
+                                grafico</label>
+                            <small
+                                style="display:block; color:var(--text-muted); font-size:0.72rem; margin-top:2px;">Aggiunge
+                                la curva LTV% al grafico centrale.</small>
+                        </div>
+                    </div>
                 </div>
 
                 <hr>
@@ -494,19 +540,79 @@
 
                 <hr>
 
-                <h3>Salvataggio & Confronto</h3>
-                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                    <button id="saveScenario1Btn" class="btn btn-add" style="flex: 1; padding: 8px;">Salva
-                        1</button>
-                    <button id="loadScenario1Btn" class="btn btn-add"
-                        style="flex: 1; padding: 8px; border-style: dashed;">Carica 1</button>
+                <h3>Inflazione sul Costo Reale <span class="info-icon"
+                        data-tooltip="Mostra quanto vale il totale pagato in euro di oggi, scontando l'inflazione. Con inflazione, le rate future 'pesano' meno.">i</span>
+                </h3>
+                <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom: 12px;">Il
+                    potere d'acquisto dell'euro diminuisce nel tempo: il costo reale del mutuo è inferiore a quello
+                    nominale.</small>
+                <div class="input-group">
+                    <label>Inflazione Annua Attesa (%)
+                        <span class="info-icon"
+                            data-tooltip="Tasso medio di inflazione annua atteso. BCE target: 2%. Usa 0 per disattivare.">i</span>
+                    </label>
+                    <input type="number" id="inflationRate" value="2.0" step="0.1" min="0" max="20">
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button id="saveScenario2Btn" class="btn btn-add" style="flex: 1; padding: 8px;">Salva
-                        2</button>
-                    <button id="loadScenario2Btn" class="btn btn-add"
-                        style="flex: 1; padding: 8px; border-style: dashed;">Carica 2</button>
+                <div id="inflationResultBox"
+                    style="margin-top: 4px; margin-bottom: 24px; padding: 14px; background: rgba(251,146,60,0.06); border: 1px solid rgba(251,146,60,0.25); border-radius: 8px; display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                        <span
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Totale
+                            Pagato Nominale</span>
+                        <span id="outNominalTotal"
+                            style="font-size: 1.1rem; font-weight:700; color: var(--text-primary);">--</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Costo
+                            Reale (€ di oggi)</span>
+                        <span id="outRealCostTotal"
+                            style="font-size: 1.15rem; font-weight:700; color: #fb923c;">--</span>
+                    </div>
+                    <div style="margin-top:8px; font-size:0.75rem; color:var(--text-muted); border-top:1px solid rgba(255,255,255,0.07); padding-top:8px;"
+                        id="inflationSavingNote"></div>
                 </div>
+
+                <hr>
+
+                <!-- Barra Avanzamento Rimborso -->
+                <h3>Avanzamento Rimborso <span class="info-icon"
+                        data-tooltip="Mostra a che punto sei con il rimborso del mutuo, basato sulla data di inizio inserita nella sezione principale.">i</span>
+                </h3>
+                <div id="repaymentProgressContainer" style="display:none; margin-bottom: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Mese <span
+                                id="outCurrentMonth">--</span> di <span id="outTotalMonths">--</span></span>
+                        <span id="outRepaymentPercent"
+                            style="font-size:1.2rem; font-weight:700; color:#10b981;">--%</span>
+                    </div>
+                    <div
+                        style="position:relative; height:12px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; margin-bottom:8px;">
+                        <div id="repaymentProgressBar"
+                            style="height:100%; width:0%; border-radius:99px; transition:width 0.6s cubic-bezier(0.4,0,0.2,1);">
+                        </div>
+                    </div>
+                    <div
+                        style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text-muted);">
+                        <span>Inizio</span>
+                        <span id="outRepaymentEndDate">Fine prevista: --</span>
+                    </div>
+                </div>
+                <div id="repaymentProgressNoDate"
+                    style="margin-bottom: 24px; font-size:0.8rem; color:var(--text-muted); padding:10px; background:rgba(255,255,255,0.03); border-radius:6px; border:1px dashed rgba(255,255,255,0.1); display:block;">
+                    ⏳ Attiva <strong style="color:#fb923c;">"Data Inizio &amp; Indicatore Oggi"</strong> nella sidebar
+                    per vedere l'avanzamento.
+                </div>
+
+
+                <h3>Salvataggio &amp; Confronto Scenari</h3>
+                <div id="scenarios-container" style="margin-bottom: 12px;">
+                    <!-- Scenari dinamici inseriti qui -->
+                </div>
+                <button id="addScenarioBtn" class="btn btn-add"
+                    style="width: 100%; border-style: dashed; background: rgba(16, 185, 129, 0.05); color: #10b981;">
+                    ＋ Aggiungi Nuovo Scenario
+                </button>
 
             </div>
         </div>
