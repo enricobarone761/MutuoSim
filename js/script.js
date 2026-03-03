@@ -216,6 +216,7 @@ if (toggleAdvancedBtn) {
     if (propertyValue) propertyValue.addEventListener('input', calculate);
     if (inflationRateInput) inflationRateInput.addEventListener('input', calculate);
     if (showLtvOnChart) showLtvOnChart.addEventListener('change', calculate);
+    if (showInflationOnChart) showInflationOnChart.addEventListener('change', calculate);
 
     if (addScenarioBtn) addScenarioBtn.addEventListener('click', addScenario);
 }
@@ -529,6 +530,19 @@ function calculate() {
     const ltvOnChart = showLtvOnChart && showLtvOnChart.checked;
     results.propertyValue = (propValInitial > 0 && ltvOnChart) ? propValInitial : null;
 
+    // Inflazione nel grafico: array YoY% per mese (storico HICP + fallback)
+    const inflOnChart = showInflationOnChart && showInflationOnChart.checked;
+    if (inflOnChart && typeof getInflationRatesForChart === 'function') {
+        const inflStartMonth = (startDateActive && startDateInput && startDateInput.value)
+            ? startDateInput.value : null;
+        const fallbackRate = parseFloat(inflationRateInput ? inflationRateInput.value : 0) || 0;
+        results.fullDataInflation = getInflationRatesForChart(
+            inflStartMonth, results.actualMonths, fallbackRate
+        );
+    } else {
+        results.fullDataInflation = null;
+    }
+
     lastFullResults = results;
 
     // Aggiornamento Range Chart
@@ -605,7 +619,8 @@ function calculate() {
         results.historicalEndMonth,
         true,
         startDate,
-        currentMonthIndex
+        currentMonthIndex,
+        results.fullDataInflation || null
     );
 
     const tbody = document.querySelector('#amortizationTable tbody');
@@ -682,7 +697,7 @@ function calculate() {
         // Investimento Alternativo
         const invRateAnn = parseFloat(investmentRate.value) || 0;
         const invRateMo = invRateAnn / 100 / 12;
-        const mortRateMo = baseRate / 100 / 12;
+        // const mortRateMo = baseRate / 100 / 12; (Non più usato, usiamo tassi esatti)
         const baseN = baselineResults.actualMonths;
 
         let futureValue = 0;
@@ -693,14 +708,70 @@ function calculate() {
         const outInvestmentSaving = document.getElementById('outInvestmentSaving');
 
         if (results.totalExtraPaid > 0) {
+
+            // Per il calcolo tasse/detrazioni perse
+            const isDetrazioneActive = calcDetrazione && calcDetrazione.checked;
+            let lostDeductionFV = 0;
+
+            if (isDetrazioneActive) {
+                // Calcoliamo la detrazione teorica e reale per anno per trovare quella persa
+                let currentYearBaseInt = 0;
+                let currentYearNewInt = 0;
+
+                for (let m = 1; m <= baseN; m++) {
+                    const baseRow = baselineResults.amortizationSchedule.find(r => r.month === m);
+                    const newRow = results.amortizationSchedule.find(r => r.month === m);
+
+                    if (baseRow) currentYearBaseInt += baseRow.interest;
+                    if (newRow) currentYearNewInt += newRow.interest;
+
+                    if (m % 12 === 0 || m === baseN) {
+                        const baseDeduction = Math.min(currentYearBaseInt, 4000) * 0.19;
+                        const newDeduction = Math.min(currentYearNewInt, 4000) * 0.19;
+                        const lostDeduction = Math.max(0, baseDeduction - newDeduction);
+
+                        // Capitalizza la detrazione persa fino alla fine del mutuo base
+                        if (lostDeduction > 0) {
+                            const monthsRemaining = baseN - m;
+                            lostDeductionFV += lostDeduction * Math.pow(1 + invRateMo, monthsRemaining);
+                        }
+
+                        currentYearBaseInt = 0;
+                        currentYearNewInt = 0;
+                    }
+                }
+            }
+
+            // Calcolo esatto per singolo versamento
             results.amortizationSchedule.forEach(row => {
                 const extra = row.extra + (row.capitalAddition || 0);
                 if (extra > 0) {
                     const rem = Math.max(0, baseN - row.month);
+
+                    // Valore Futuro Investimento: matura al tasso mensile fisso (invRateMo)
                     futureValue += extra * Math.pow(1 + invRateMo, rem);
-                    fvPrepay += extra * Math.pow(1 + mortRateMo, rem);
+
+                    // Valore Futuro Estinzione: l'equivalente del risparmio composto 
+                    // calcolato secondo i tassi base mese per mese da "row.month" a "baseN"
+                    let fvCompoundPrepay = extra;
+                    for (let f = row.month + 1; f <= baseN; f++) {
+                        let fvRate = baseRate;
+                        // Usa il tasso reale per quel mese, prelevato dalla baseline
+                        const rateIndex = Math.min(f - 1, baselineResults.fullDataRate.length - 1);
+                        if (rateIndex >= 0) {
+                            fvRate = baselineResults.fullDataRate[rateIndex] || baseRate;
+                        }
+                        fvCompoundPrepay *= (1 + (fvRate / 100 / 12));
+                    }
+                    fvPrepay += fvCompoundPrepay;
                 }
             });
+
+            // Sottrae il FV delle detrazioni perse dal vantaggio dell'estinzione
+            if (lostDeductionFV > 0) {
+                fvPrepay -= lostDeductionFV;
+            }
+
             outInvestmentValue.innerText = fmtCurr(futureValue);
             if (outInvestmentSaving) outInvestmentSaving.innerText = fmtCurr(fvPrepay);
             if (investmentNote) investmentNote.style.display = 'none';
@@ -708,17 +779,25 @@ function calculate() {
             if (investmentVerdict) {
                 investmentVerdict.style.display = 'block';
                 if (Math.abs(futureValue - fvPrepay) < 1) {
-                    investmentVerdict.textContent = `⚖️ Pareggio: al ${invRateAnn.toFixed(1)}% le due strategie sono equivalenti (uguale al TAN del mutuo).`;
+                    investmentVerdict.textContent = `⚖️ Pareggio: le due strategie sono equivalenti.`;
                     investmentVerdict.style.background = 'rgba(148,163,184,0.1)';
                     investmentVerdict.style.color = 'var(--text-muted)';
                 } else if (futureValue > fvPrepay) {
                     const diff = futureValue - fvPrepay;
-                    investmentVerdict.textContent = `📈 Investire conviene di più: il tuo investimento rende ${fmtCurr(diff)} in più del rimborso anticipato.`;
+                    let text = `📈 Investire conviene: il tuo investimento rende ${fmtCurr(diff)} in più del risparmio da estinzione.`;
+                    if (isDetrazioneActive && lostDeductionFV > 0) {
+                        text += ` (Include ${fmtCurr(lostDeductionFV)} di detrazioni fiscali perse composte)`;
+                    }
+                    investmentVerdict.textContent = text;
                     investmentVerdict.style.background = 'rgba(59,130,246,0.12)';
                     investmentVerdict.style.color = '#3b82f6';
                 } else {
                     const diff = fvPrepay - futureValue;
-                    investmentVerdict.textContent = `🏦 Estinguere conviene di più: il rimborso anticipato vale ${fmtCurr(diff)} in più del tuo investimento.`;
+                    let text = `🏦 Estinguere conviene: il risparmio composto vale ${fmtCurr(diff)} in più del tuo investimento.`;
+                    if (isDetrazioneActive && lostDeductionFV > 0) {
+                        text += ` (A netto di ${fmtCurr(lostDeductionFV)} di detrazioni fiscali perse composte)`;
+                    }
+                    investmentVerdict.textContent = text;
                     investmentVerdict.style.background = 'rgba(16,185,129,0.12)';
                     investmentVerdict.style.color = '#10b981';
                 }
@@ -730,42 +809,21 @@ function calculate() {
             if (investmentVerdict) investmentVerdict.style.display = 'none';
         }
 
-        // ===== INFLAZIONE SUL COSTO REALE =====
-        const inflRate = parseFloat(inflationRateInput ? inflationRateInput.value : 0) || 0;
-        if (inflationResultBox) {
-            if (inflRate > 0) {
-                // Tasso mensile geometrico: (1+i)^(1/12) - 1
-                const inflRateMo = Math.pow(1 + (inflRate / 100), 1 / 12) - 1;
-                const todayIdx = currentMonthIndex || 0; // Se non indicato, riferimento inizio mutuo (Mese 0)
+        // ===== INFLAZIONE SUL COSTO REALE — delegato a inflation.js =====
+        if (typeof updateInflationUI === 'function') {
+            // Usa la data di inizio mutuo (YYYY-MM) se attiva, per i dati storici HICP
+            const inflStartMonth = (startDateActive && startDateInput && startDateInput.value)
+                ? startDateInput.value
+                : null;
 
-                let realCost = 0;
-                results.amortizationSchedule.forEach(row => {
-                    const nominalPayment = row.payment + row.extra + cAssic;
-                    // Formula: PV_today = FV_m / (1 + i)^(m - today)
-                    // Se m < today: viene (1+i)^pos, quindi inflaziona il valore passato a oggi.
-                    // Se m > today: viene (1+i)^neg, quindi sconta il valore futuro a oggi.
-                    realCost += nominalPayment / Math.pow(1 + inflRateMo, row.month - todayIdx);
-                });
-
-                // Anche i costi iniziali vanno portati a "oggi" se il mutuo è iniziato nel passato
-                // (sono stati pagati al Mese 0)
-                const realInitialCosts = initialCosts / Math.pow(1 + inflRateMo, 0 - todayIdx);
-                realCost += realInitialCosts;
-
-                const nominalTotal = baseTotalPaid;
-                const saving = nominalTotal - realCost;
-                const savingPct = nominalTotal > 0 ? (saving / nominalTotal) * 100 : 0;
-
-                inflationResultBox.style.display = 'block';
-                if (outNominalTotal) outNominalTotal.textContent = fmtCurr(nominalTotal);
-                if (outRealCostTotal) outRealCostTotal.textContent = fmtCurr(realCost);
-                if (inflationSavingNote) {
-                    const timeframe = todayIdx > 0 ? "rispetto al potere d'acquisto di oggi" : "in euro del valore d'inizio mutuo";
-                    inflationSavingNote.textContent = `Con inflazione al ${inflRate.toFixed(1)}%, il mutuo "pesa" ${fmtCurr(saving)} meno in termini reali (−${savingPct.toFixed(1)}%) ${timeframe}.`;
-                }
-            } else {
-                inflationResultBox.style.display = 'none';
-            }
+            updateInflationUI({
+                amortizationSchedule: results.amortizationSchedule,
+                baseTotalPaid,
+                initialCosts,
+                monthlyInsurance: cAssic,
+                currentMonthIndex,
+                startMonth: inflStartMonth
+            });
         }
 
         // Heatmap Interessi
@@ -822,13 +880,55 @@ function calculate() {
         if (propVal > 0) {
             const totalCapitalAdditions = capitalAdditionsList.reduce((sum, ca) => sum + (ca.amount || 0), 0);
             const totalFinanziato = P + totalCapitalAdditions;
-            const ltv = (totalFinanziato / propVal) * 100;
+            // LTV iniziale (all'accensione)
+            const ltvIniziale = (totalFinanziato / propVal) * 100;
+
+            // LTV corrente: se c'è un mese corrente, usa il debito residuo di quel mese
+            let ltvCorrente = ltvIniziale;
+            let debitoResiduo = totalFinanziato;
+            const hasTodayIndex = currentMonthIndex !== null && currentMonthIndex > 0;
+            if (hasTodayIndex && results.amortizationSchedule && results.amortizationSchedule.length > 0) {
+                // Trova il saldo residuo al mese corrente nel piano di ammortamento
+                const idx = Math.min(currentMonthIndex, results.amortizationSchedule.length) - 1;
+                const scheduleRow = results.amortizationSchedule[idx];
+                if (scheduleRow) {
+                    // Il campo 'balance' non è disponibile nel piano, usiamo fullDataBalance
+                    const balIdx = Math.min(currentMonthIndex - 1, results.fullDataBalance.length - 1);
+                    if (balIdx >= 0 && results.fullDataBalance[balIdx] !== undefined) {
+                        debitoResiduo = results.fullDataBalance[balIdx];
+                        ltvCorrente = (debitoResiduo / propVal) * 100;
+                    }
+                }
+            }
+
+            // La barra e il valore principale mostrano il LTV corrente (o iniziale se non c'è data)
+            const ltv = ltvCorrente;
             const ltvClamped = Math.min(ltv, 100);
 
             if (ltvResultBox) ltvResultBox.style.display = 'block';
+
+            // Aggiorna etichetta del box contestualmente
+            const ltvLabel = ltvResultBox.querySelector('.ltv-label-header');
+            if (ltvLabel) {
+                ltvLabel.textContent = hasTodayIndex ? 'LTV attuale' : 'LTV all\'accensione';
+            }
+
             if (outLtvPercent) {
                 outLtvPercent.textContent = ltv.toFixed(1) + '%';
             }
+
+            // Mostra confronto iniziale se in modalità corrente
+            const ltvCompareEl = document.getElementById('ltvCompare');
+            if (ltvCompareEl) {
+                if (hasTodayIndex) {
+                    const guadagno = ltvIniziale - ltvCorrente;
+                    ltvCompareEl.innerHTML = `<span style="color:var(--text-muted);font-size:0.72rem;">All'accensione: <strong>${ltvIniziale.toFixed(1)}%</strong></span>&nbsp;&nbsp;<span style="color:#10b981;font-size:0.72rem;">▼ ${guadagno.toFixed(1)}pp migliorato</span>`;
+                    ltvCompareEl.style.display = 'block';
+                } else {
+                    ltvCompareEl.style.display = 'none';
+                }
+            }
+
             if (ltvBar) {
                 ltvBar.style.width = ltvClamped + '%';
                 if (ltv <= 60) {

@@ -491,10 +491,13 @@
                 </div>
                 <!-- LTV result block -->
                 <div id="ltvResultBox" style="margin-top:4px; margin-bottom:24px; display:none;">
-                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-                        <span style="font-size:0.75rem; color:var(--text-muted);">LTV all'accensione</span>
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+                        <span class="ltv-label-header" style="font-size:0.75rem; color:var(--text-muted);">LTV
+                            all'accensione</span>
                         <span id="outLtvPercent" style="font-size:1.4rem; font-weight:700;">--%</span>
                     </div>
+                    <!-- Confronto LTV iniziale vs attuale -->
+                    <div id="ltvCompare" style="display:none; margin-bottom:6px;"></div>
                     <!-- Barra LTV -->
                     <div
                         style="position:relative; height:10px; background:rgba(255,255,255,0.08); border-radius:99px; margin-bottom:8px; overflow:hidden;">
@@ -540,37 +543,62 @@
 
                 <hr>
 
-                <h3>Inflazione sul Costo Reale <span class="info-icon"
-                        data-tooltip="Mostra quanto vale il totale pagato in euro di oggi, scontando l'inflazione. Con inflazione, le rate future 'pesano' meno.">i</span>
+                <h3>Quanto "pesa" davvero il mutuo? <span class="info-icon"
+                        data-tooltip="Con l'inflazione, lo stesso euro vale meno nel tempo. Quindi una rata da 800€ tra 20 anni 'pesa' molto meno di una rata da 800€ oggi. Questo strumento calcola il costo reale del mutuo tenendo conto di questo effetto.">i</span>
                 </h3>
-                <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom: 12px;">Il
-                    potere d'acquisto dell'euro diminuisce nel tempo: il costo reale del mutuo è inferiore a quello
-                    nominale.</small>
+                <small style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-bottom: 12px;">💡 Con
+                    l'inflazione, il valore dei soldi scende nel tempo. Le rate che pagherai tra 10 o 20 anni ti
+                    costeranno <em>sforzo economico</em> minore rispetto a quello che sembra oggi. Qui puoi vedere
+                    quanto ti costa il mutuo "in euro di oggi".</small>
                 <div class="input-group">
                     <label>Inflazione Annua Attesa (%)
                         <span class="info-icon"
-                            data-tooltip="Tasso medio di inflazione annua atteso. BCE target: 2%. Usa 0 per disattivare.">i</span>
+                            data-tooltip="Inserisci la tua stima di inflazione media annua per tutta la durata del mutuo. Il target della BCE è 2%. Metti 0 per nascondere questa analisi.">i</span>
                     </label>
                     <input type="number" id="inflationRate" value="2.0" step="0.1" min="0" max="20">
                 </div>
                 <div id="inflationResultBox"
                     style="margin-top: 4px; margin-bottom: 24px; padding: 14px; background: rgba(251,146,60,0.06); border: 1px solid rgba(251,146,60,0.25); border-radius: 8px; display:none;">
+                    <!-- Stato dati storici HICP -->
+                    <div id="inflationDataStatus"
+                        style="font-size:0.72rem; margin-bottom:10px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:5px; line-height:1.5;">
+                    </div>
+                    <!-- Badge mesi su dati reali -->
+                    <div id="inflHistoricalBadge"
+                        style="display:none; font-size:0.7rem; font-weight:600; color:#3b82f6; margin-bottom:10px; padding:4px 8px; background:rgba(59,130,246,0.08); border-radius:4px;">
+                    </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                         <span
-                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Totale
-                            Pagato Nominale</span>
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);"
+                            data-tooltip="La somma di tutte le rate che pagherai, senza correzioni. È il numero che leggi sul contratto.">Quello
+                            che paghi sulla carta 📄</span>
                         <span id="outNominalTotal"
                             style="font-size: 1.1rem; font-weight:700; color: var(--text-primary);">--</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span
-                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Costo
-                            Reale (€ di oggi)</span>
+                            style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);"
+                            data-tooltip="Lo stesso importo convertito nel potere d'acquisto di oggi. È quanto 'senti' davvero lo sforzo economico del mutuo.">Quanto
+                            senti davvero 💪</span>
                         <span id="outRealCostTotal"
                             style="font-size: 1.15rem; font-weight:700; color: #fb923c;">--</span>
                     </div>
                     <div style="margin-top:8px; font-size:0.75rem; color:var(--text-muted); border-top:1px solid rgba(255,255,255,0.07); padding-top:8px;"
                         id="inflationSavingNote"></div>
+                    <!-- Toggle mostra inflazione nel grafico -->
+                    <div class="toggle-container"
+                        style="margin-top:10px; background: rgba(34, 211, 238, 0.05); border-left: 4px solid #22d3ee;">
+                        <input type="checkbox" id="showInflationOnChart" class="toggle-checkbox"
+                            style="accent-color: #22d3ee;">
+                        <div>
+                            <label for="showInflationOnChart"
+                                style="margin:0; cursor:pointer; color: #22d3ee; font-size: 0.85rem;">Mostra nel
+                                grafico</label>
+                            <small
+                                style="display:block; color:var(--text-muted); font-size:0.72rem; margin-top:2px;">Aggiunge
+                                la curva Inflazione% al grafico centrale.</small>
+                        </div>
+                    </div>
                 </div>
 
                 <hr>
@@ -651,6 +679,8 @@
     <script src="js/chart-manager.js"></script>
     <script src="js/data/euribor_data.js"></script>
     <script src="js/euribor.js"></script>
+    <script src="js/data/inflation_data.js"></script>
+    <script src="js/inflation.js"></script>
     <script src="js/script.js"></script>
 
     <!-- Floating Tooltip System -->

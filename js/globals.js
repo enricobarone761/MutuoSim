@@ -98,6 +98,7 @@ const outDti = document.getElementById('outDti');
 
 const propertyValue = document.getElementById('propertyValue');
 const showLtvOnChart = document.getElementById('showLtvOnChart');
+const showInflationOnChart = document.getElementById('showInflationOnChart');
 
 const scenariosContainer = document.getElementById('scenarios-container');
 const addScenarioBtn = document.getElementById('addScenarioBtn');
@@ -109,11 +110,9 @@ const startDateSection = document.getElementById('startDate-section');
 const startDateInput = document.getElementById('startDateInput');
 
 // --- Inflazione sul Costo Reale ---
+// inflationRateInput è globale perché usato da script.js (event listeners, scenari)
+// Gli altri DOM refs sono privati in inflation.js
 const inflationRateInput = document.getElementById('inflationRate');
-const inflationResultBox = document.getElementById('inflationResultBox');
-const outNominalTotal = document.getElementById('outNominalTotal');
-const outRealCostTotal = document.getElementById('outRealCostTotal');
-const inflationSavingNote = document.getElementById('inflationSavingNote');
 
 // --- Avanzamento Rimborso ---
 const repaymentProgressContainer = document.getElementById('repaymentProgressContainer');

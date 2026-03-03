@@ -27,38 +27,56 @@ let _lastTodayLabel = null;
  * Chiamato dopo ogni chart.update() per garantire la posizione esatta.
  */
 function placeOggiDot(chart, todayLabel) {
-    if (oggiDotEl && oggiDotEl.parentNode) {
-        oggiDotEl.parentNode.removeChild(oggiDotEl);
-    }
-    oggiDotEl = null;
     _lastTodayLabel = todayLabel || null;
 
-    if (!todayLabel || !chart) return;
+    // Se non c'è oggi o chart, o se oggiDotEl esiste ma deve sparire
+    if (!todayLabel || !chart) {
+        if (oggiDotEl && oggiDotEl.parentNode) {
+            oggiDotEl.parentNode.removeChild(oggiDotEl);
+        }
+        oggiDotEl = null;
+        return;
+    }
 
     const labelIndex = chart.data.labels.indexOf(todayLabel);
-    if (labelIndex === -1) return;
+    // Se la label non è nel range visualizzato, rimuoviamo il dot
+    if (labelIndex === -1) {
+        if (oggiDotEl && oggiDotEl.parentNode) {
+            oggiDotEl.parentNode.removeChild(oggiDotEl);
+        }
+        oggiDotEl = null;
+        return;
+    }
 
     const meta = chart.getDatasetMeta(0);
     if (!meta || !meta.data || !meta.data[labelIndex]) return;
 
     const point = meta.data[labelIndex];
-    const canvasEl = chart.canvas;
-    const wrapper = canvasEl.closest('.chart-container') || canvasEl.parentElement;
+    // Durante l'animazione x o y potrebbero essere temporaneamente non definiti
+    if (point.x === undefined || point.y === undefined) return;
 
-    const dot = document.createElement('div');
-    dot.className = 'oggi-dot-wrapper';
-    dot.style.left = point.x + 'px';
-    dot.style.top = point.y + 'px';
+    // Crea l'elemento se non esiste
+    if (!oggiDotEl) {
+        const canvasEl = chart.canvas;
+        const wrapper = canvasEl.closest('.chart-container') || canvasEl.parentElement;
 
-    const core = document.createElement('div');
-    core.className = 'oggi-dot-core';
-    const ring = document.createElement('div');
-    ring.className = 'oggi-dot-ring';
+        const dot = document.createElement('div');
+        dot.className = 'oggi-dot-wrapper';
 
-    dot.appendChild(ring);
-    dot.appendChild(core);
-    wrapper.appendChild(dot);
-    oggiDotEl = dot;
+        const core = document.createElement('div');
+        core.className = 'oggi-dot-core';
+        const ring = document.createElement('div');
+        ring.className = 'oggi-dot-ring';
+
+        dot.appendChild(ring);
+        dot.appendChild(core);
+        wrapper.appendChild(dot);
+        oggiDotEl = dot;
+    }
+
+    // Aggiorna posizione (senza ricreare il DOM)
+    oggiDotEl.style.left = point.x + 'px';
+    oggiDotEl.style.top = point.y + 'px';
 }
 
 /**
@@ -124,7 +142,8 @@ function handleRangeChange() {
             lastFullResults.historicalEndMonth,
             false,
             lastFullResults.startDate || null,
-            lastFullResults.currentMonthIndex || null
+            lastFullResults.currentMonthIndex || null,
+            lastFullResults.fullDataInflation || null
         );
     }
 }
@@ -184,7 +203,8 @@ function resetChartRange() {
             lastFullResults.historicalEndMonth,
             false,
             lastFullResults.startDate || null,
-            lastFullResults.currentMonthIndex || null
+            lastFullResults.currentMonthIndex || null,
+            lastFullResults.fullDataInflation || null
         );
     }
 }
@@ -201,7 +221,7 @@ function sampleData(startM, endM, allData, currentMonthIndex, historicalEndMonth
 
     const result = {
         labels: [], sampledMonths: [],
-        balance: [], interest: [], payment: [], actualPayment: [], rate: [],
+        balance: [], interest: [], payment: [], actualPayment: [], rate: [], inflation: [],
         historicalEndLabel: null, todayLabel: null
     };
 
@@ -214,6 +234,7 @@ function sampleData(startM, endM, allData, currentMonthIndex, historicalEndMonth
         result.payment.push(allData.payment[i]);
         result.actualPayment.push(allData.actualPayment[i]);
         result.rate.push(allData.rate[i]);
+        result.inflation.push(allData.inflation ? (allData.inflation[i] ?? null) : null);
 
         if (m === historicalEndMonth) result.historicalEndLabel = realLabels[i];
         if (currentMonthIndex !== null && m === currentMonthIndex) result.todayLabel = realLabels[i];
@@ -224,7 +245,7 @@ function sampleData(startM, endM, allData, currentMonthIndex, historicalEndMonth
 
 /* ─── datasets & annotations ──────────────────────────────────────────────── */
 
-function buildDatasets(sampled, ltvData, propVal, ctx) {
+function buildDatasets(sampled, ltvData, propVal, inflationData, ctx) {
     const gradBalance = ctx.createLinearGradient(0, 0, 0, 420);
     gradBalance.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
     gradBalance.addColorStop(0.6, 'rgba(16, 185, 129, 0.07)');
@@ -314,8 +335,26 @@ function buildDatasets(sampled, ltvData, propVal, ctx) {
         });
     }
 
+    if (inflationData && inflationData.length > 0) {
+        datasets.push({
+            label: 'Inflazione HICP (%)',
+            data: inflationData,
+            borderColor: '#22d3ee',
+            backgroundColor: 'rgba(34,211,238,0.06)',
+            fill: true,
+            borderWidth: 2,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            tension: 0.3,
+            cubicInterpolationMode: 'monotone',
+            yAxisID: 'y_inflation'
+        });
+    }
+
     return datasets;
 }
+
 
 function buildAnnotations(sampled) {
     const annotations = {};
@@ -390,7 +429,8 @@ function calcPaymentAxisLimits(paymentData, actualPaymentData) {
 function updateChart(
     allLabels, allBalanceData, allInterestData, allPaymentData,
     allActualPaymentData, allRateData, historicalEndMonth,
-    shouldAnimate = true, startDate = null, currentMonthIndex = null
+    shouldAnimate = true, startDate = null, currentMonthIndex = null,
+    allInflationData = null
 ) {
     const ctxElement = document.getElementById('mortgageChart');
     if (!ctxElement) return;
@@ -406,7 +446,8 @@ function updateChart(
         interest: allInterestData,
         payment: allPaymentData,
         actualPayment: allActualPaymentData,
-        rate: allRateData
+        rate: allRateData,
+        inflation: allInflationData
     };
 
     const sampled = sampleData(startM, endM, allData, currentMonthIndex, historicalEndMonth);
@@ -417,6 +458,9 @@ function updateChart(
         ? sampled.balance.map(bal => parseFloat(((bal / propVal) * 100).toFixed(2)))
         : [];
 
+    // Inflazione campionata
+    const inflData = sampled.inflation.some(v => v !== null) ? sampled.inflation : null;
+
     const payAxisLimits = calcPaymentAxisLimits(sampled.payment, sampled.actualPayment);
     const annotations = buildAnnotations(sampled);
 
@@ -426,20 +470,16 @@ function updateChart(
     if (!myChart) {
         // ── Prima creazione ────────────────────────────────────────────────
         const ctx = ctxElement.getContext('2d');
-        const datasets = buildDatasets(sampled, ltvData, propVal, ctx);
+        const datasets = buildDatasets(sampled, ltvData, propVal, inflData, ctx);
 
         myChart = new Chart(ctx, {
             type: 'line',
             data: { labels: sampled.labels, datasets },
-            options: _buildChartOptions(shouldAnimate, annotations, payAxisLimits, propVal, sampled)
+            options: _buildChartOptions(shouldAnimate, annotations, payAxisLimits, propVal, sampled, inflData)
         });
 
-        // Posiziona dot dopo il primo render
-        if (shouldAnimate) {
-            myChart.options.animation.onComplete = () => placeOggiDot(myChart, sampled.todayLabel);
-        } else {
-            placeOggiDot(myChart, sampled.todayLabel);
-        }
+        // Posizionamento iniziale forzato se non c'è animazione o per stabilizzare
+        placeOggiDot(myChart, sampled.todayLabel);
 
         // Riposiziona al resize del container
         const container = ctxElement.closest('.chart-container') || ctxElement.parentElement;
@@ -450,11 +490,11 @@ function updateChart(
     } else {
         // ── Aggiornamento in-place — niente flash ──────────────────────────
         const ctx = ctxElement.getContext('2d');
-        const datasets = buildDatasets(sampled, ltvData, propVal, ctx);
+        const datasets = buildDatasets(sampled, ltvData, propVal, inflData, ctx);
 
         myChart.data.labels = sampled.labels;
 
-        // Sincronizza numero di dataset (es. LTV appare/sparisce)
+        // Sincronizza numero di dataset (es. LTV/inflazione appaiono/spariscono)
         while (myChart.data.datasets.length > datasets.length) myChart.data.datasets.pop();
         while (myChart.data.datasets.length < datasets.length) myChart.data.datasets.push({});
         datasets.forEach((ds, i) => Object.assign(myChart.data.datasets[i], ds));
@@ -463,14 +503,15 @@ function updateChart(
         myChart.options.scales.y_payment.suggestedMin = payAxisLimits.suggestedMin;
         myChart.options.scales.y_payment.suggestedMax = payAxisLimits.suggestedMax;
         myChart.options.scales.y_ltv.display = propVal > 0;
+        myChart.options.scales.y_inflation.display = !!(inflData && inflData.length > 0);
 
         if (shouldAnimate) {
-            myChart.options.animation = {
-                onComplete: () => placeOggiDot(myChart, sampled.todayLabel)
-            };
+            // Aggiorniamo i callback per prelevare la nuova sampled.todayLabel
+            myChart.options.animation.onProgress = (anim) => placeOggiDot(anim.chart, sampled.todayLabel);
+            myChart.options.animation.onComplete = (anim) => placeOggiDot(anim.chart, sampled.todayLabel);
             myChart.update();
         } else {
-            myChart.options.animation = { duration: 0 };
+            myChart.options.animation.duration = 0;
             myChart.update('none');
             // Con 'none' il render è sincrono → posizionamento immediato
             placeOggiDot(myChart, sampled.todayLabel);
@@ -481,9 +522,15 @@ function updateChart(
 /**
  * Costruisce l'oggetto options per Chart.js (prima creazione).
  */
-function _buildChartOptions(shouldAnimate, annotations, payAxisLimits, propVal, sampled) {
+function _buildChartOptions(shouldAnimate, annotations, payAxisLimits, propVal, sampled, inflData) {
+    const animConfig = shouldAnimate ? {
+        duration: 450,
+        onProgress: (anim) => placeOggiDot(anim.chart, sampled.todayLabel),
+        onComplete: (anim) => placeOggiDot(anim.chart, sampled.todayLabel)
+    } : { duration: 0 };
+
     return {
-        animation: shouldAnimate ? {} : { duration: 0 },
+        animation: animConfig,
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
@@ -602,6 +649,19 @@ function _buildChartOptions(shouldAnimate, annotations, payAxisLimits, propVal, 
                     callback: val => val + '%',
                     maxTicksLimit: 6,
                     color: '#a855f7',
+                    font: { size: 11 }
+                },
+                grid: { display: false }
+            },
+            y_inflation: {
+                display: !!(inflData && inflData.length > 0),
+                position: 'right',
+                min: -2,
+                suggestedMax: 8,
+                ticks: {
+                    callback: val => val.toFixed(1) + '%',
+                    maxTicksLimit: 6,
+                    color: '#22d3ee',
                     font: { size: 11 }
                 },
                 grid: { display: false }
