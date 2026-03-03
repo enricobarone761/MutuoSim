@@ -11,6 +11,7 @@ Esegui per aggiornare i dati:
 
 import json
 import urllib.request
+import os
 from datetime import datetime
 
 # API Eurostat REST (formato JSON-stat2)
@@ -23,8 +24,11 @@ EUROSTAT_URL = (
     "&sinceTimePeriod=1996-01"
 )
 
-OUTPUT_JSON = "../data/inflation_data.json"
-OUTPUT_JS   = "../js/data/inflation_data.js"
+# Determina la cartella root del progetto rispetto allo script
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+OUTPUT_JSON = os.path.join(BASE_DIR, "data", "inflation_data.json")
+OUTPUT_JS   = os.path.join(BASE_DIR, "js", "data", "inflation_data.js")
 
 
 def fetch_hicp_index(url: str) -> dict[str, float]:

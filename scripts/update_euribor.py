@@ -6,6 +6,7 @@ Esegui questo script ogni volta che vuoi aggiornare i dati:
 
 import json
 import urllib.request
+import os
 from datetime import datetime
 
 # URL API BCE (formato SDMX-JSON)
@@ -14,8 +15,11 @@ ECB_URLS = {
     "3M": "https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA?format=jsondata&startPeriod=1999-01",
 }
 
-OUTPUT_JSON = "../data/euribor_data.json"
-OUTPUT_JS = "../js/data/euribor_data.js"
+# Determina la cartella root del progetto rispetto allo script
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+OUTPUT_JSON = os.path.join(BASE_DIR, "data", "euribor_data.json")
+OUTPUT_JS = os.path.join(BASE_DIR, "js", "data", "euribor_data.js")
 
 
 def fetch_ecb_series(url: str) -> dict[str, float]:
@@ -25,7 +29,9 @@ def fetch_ecb_series(url: str) -> dict[str, float]:
     with urllib.request.urlopen(req, timeout=30) as resp:
         raw = json.loads(resp.read().decode("utf-8"))
 
-    observations = raw["dataSets"][0]["series"]["0:0:0:0:0:0:0"]["observations"]
+    series_data = raw["dataSets"][0]["series"]
+    series_key = list(series_data.keys())[0]
+    observations = series_data[series_key]["observations"]
     time_periods = raw["structure"]["dimensions"]["observation"][0]["values"]
 
     data: dict[str, float] = {}
