@@ -639,6 +639,143 @@
                 </div>
 
 
+                <hr>
+
+                <!-- ===== SEZIONE SURROGA ===== -->
+                <h3>Surroga Mutuo <span class="info-icon"
+                        data-tooltip="Simula il trasferimento del mutuo a un'altra banca. Vengono calcolati risparmio interessi, differenza di rata e break-even sui costi. Per legge non puoi pagare spese di estinzione al vecchio istituto.">i</span>
+                </h3>
+
+                <div class="toggle-container"
+                    style="background: rgba(234, 179, 8, 0.05); border-left: 4px solid #eab308;">
+                    <input type="checkbox" id="surrogaToggle" class="toggle-checkbox" style="accent-color: #eab308;">
+                    <div>
+                        <label for="surrogaToggle" style="margin:0; cursor:pointer; color: #eab308;">Simula
+                            Surroga</label>
+                        <small
+                            style="display:block; color:var(--text-muted); font-size: 0.75rem; margin-top:2px;">Confronta
+                            i costi residui prima e dopo la surroga.</small>
+                    </div>
+                </div>
+
+                <div id="surroga-section" style="display:none;">
+
+                    <!-- Riga 1: Mese + Tasso -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <div class="input-group" style="margin-bottom:0;">
+                            <label>Mese Surroga <span class="info-icon"
+                                    data-tooltip="Il mese del piano in cui si effettua la surroga. Il debito residuo diventa il capitale del nuovo mutuo.">i</span></label>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="number" id="surrogaMonth" value="1" step="1" min="1" max="360"
+                                    style="flex:1; min-width:0;">
+                                <button id="surrogaTodayBtn" title="Imposta mese corrente del mutuo"
+                                    style="background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.4);
+                                           color:#eab308; border-radius:6px; padding:7px 8px; cursor:pointer;
+                                           font-size:0.75rem; font-weight:600; white-space:nowrap; flex-shrink:0;">Oggi</button>
+                            </div>
+                        </div>
+                        <div class="input-group" style="margin-bottom:0;">
+                            <label>Nuovo Tasso (%) <span class="info-icon"
+                                    data-tooltip="Il TAN annuo proposto dalla nuova banca.">i</span></label>
+                            <input type="number" id="surrogaNewRate" value="2.5" step="0.05" min="0" max="25">
+                        </div>
+                    </div>
+
+                    <!-- Riga 2: Durata + Perizia + Istruttoria -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                        <div>
+                            <label
+                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Durata
+                                (mesi) <span class="info-icon"
+                                    data-tooltip="Durata del nuovo mutuo in mesi. Precompilata con i mesi residui esatti, senza arrotondamento, cos&igrave; con lo stesso tasso la rata &egrave; identica.">i</span></label>
+                            <input type="number" id="surrogaNewYears" value="240" step="1" min="1" max="360"
+                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Perizia
+                                (€) <span class="info-icon"
+                                    data-tooltip="Costo perizia della nuova banca.">i</span></label>
+                            <input type="number" id="surrogaCostPerizia" value="0" step="50" min="0"
+                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Istruttoria
+                                (€) <span class="info-icon"
+                                    data-tooltip="Spese di istruttoria della nuova banca.">i</span></label>
+                            <input type="number" id="surrogaCostIstruttoria" value="0" step="50" min="0"
+                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
+                        </div>
+                    </div>
+
+                    <!-- Risultati Surroga -->
+                    <div id="surrogaResultBox"
+                        style="padding:14px; background:rgba(234,179,8,0.06); border:1px solid rgba(234,179,8,0.22); border-radius:8px; display:none;">
+
+                        <!-- Debito residuo -->
+                        <div id="surrogaResidualInfo"
+                            style="font-size:0.75rem; margin-bottom:12px; padding:7px 10px; background:rgba(255,255,255,0.03); border-radius:5px; color:var(--text-muted); line-height:1.5;">
+                        </div>
+
+                        <!-- Confronto rate -->
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                            <div
+                                style="background:rgba(244,63,94,0.07); border-radius:6px; padding:10px 12px; border:1px solid rgba(244,63,94,0.15);">
+                                <span
+                                    style="font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); display:block; margin-bottom:3px;">Rata
+                                    Attuale</span>
+                                <span id="surrogaRataAttuale"
+                                    style="font-size:1.25rem; font-weight:700; color:#f43f5e;">--</span>
+                            </div>
+                            <div
+                                style="background:rgba(234,179,8,0.07); border-radius:6px; padding:10px 12px; border:1px solid rgba(234,179,8,0.2);">
+                                <span
+                                    style="font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); display:block; margin-bottom:3px;">Nuova
+                                    Rata</span>
+                                <span id="surrogaRataNuova"
+                                    style="font-size:1.25rem; font-weight:700; color:#eab308;">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Righe dati compatte -->
+                        <div class="surr-row">
+                            <span class="surr-row-label">&Delta; Rata/mese</span>
+                            <span id="surrogaRataSaving" class="surr-row-value">--</span>
+                        </div>
+                        <div class="surr-row">
+                            <span class="surr-row-label">Int. residui <em
+                                    style="font-style:normal;opacity:.6;">senza</em></span>
+                            <span id="surrogaIntSenzaSurr" class="surr-row-value" style="color:#f43f5e;">--</span>
+                        </div>
+                        <div class="surr-row surr-row-sep">
+                            <span class="surr-row-label">Int. residui <em
+                                    style="font-style:normal;color:#eab308;">con</em></span>
+                            <span id="surrogaIntConSurr" class="surr-row-value" style="color:#10b981;">--</span>
+                        </div>
+                        <div class="surr-row surr-row-sep">
+                            <span class="surr-row-label">Risparmio netto <span class="info-icon"
+                                    data-tooltip="Risparmio interessi al netto di perizia e istruttoria. Negativo = la surroga costa di pi&ugrave;.">i</span></span>
+                            <span id="surrogaNetSaving" class="surr-row-value" style="font-size:1.05rem;">--</span>
+                        </div>
+                        <div id="surrogaBreakevenBox" style="display:none;">
+                            <div class="surr-row surr-row-sep">
+                                <span class="surr-row-label">Break-even <span class="info-icon"
+                                        data-tooltip="Mesi necessari per recuperare perizia+istruttoria grazie al risparmio mensile sulla rata.">i</span></span>
+                                <span id="surrogaBreakeven" class="surr-row-value">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Verdict -->
+                        <div id="surrogaVerdict"
+                            style="margin-top:10px; padding:9px 11px; border-radius:6px; font-size:0.8rem; font-weight:600; line-height:1.4;">
+                        </div>
+                    </div>
+
+                    <!-- Campo assicurazione (compatibilità JS, non mostrato) -->
+                    <input type="hidden" id="surrogaCostAssic" value="0">
+                </div>
+
                 <h3>Salvataggio &amp; Confronto Scenari</h3>
                 <div id="scenarios-container" style="margin-bottom: 12px;">
                     <!-- Scenari dinamici inseriti qui -->

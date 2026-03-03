@@ -184,6 +184,49 @@ if (startDateInput) {
         calculate();
     });
 }
+// --- Event Listeners Surroga ---
+if (surrogaToggle) {
+    surrogaToggle.addEventListener('change', function () {
+        surrogaSection.style.display = this.checked ? 'block' : 'none';
+        // Auto-popola valori di default all'attivazione
+        if (this.checked && lastFullResults) {
+            // 1. Determina il mese di surroga
+            let surrogaM = 1;
+            if (lastFullResults.currentMonthIndex !== null && lastFullResults.currentMonthIndex > 0) {
+                surrogaM = lastFullResults.currentMonthIndex;
+            }
+            if (surrogaMonthInput) surrogaMonthInput.value = surrogaM;
+
+            // 2. Calcola mesi residui esatti a partire dal mese di surroga appena impostato
+            if (surrogaNewYearsInput && lastFullResults.actualMonths) {
+                const residualMonths = Math.max(1, lastFullResults.actualMonths - surrogaM);
+                // Il campo ora è in MESI (non anni) → nessun arrotondamento
+                surrogaNewYearsInput.value = residualMonths;
+            }
+        }
+        calculate();
+    });
+    [surrogaMonthInput, surrogaNewRateInput, surrogaNewYearsInput,
+        surrogaCostPeriziaInput, surrogaCostIstruttoriaInput, surrogaCostAssicInput].forEach(el => {
+            if (el) el.addEventListener('input', calculate);
+        });
+    const surrogaTodayBtn = document.getElementById('surrogaTodayBtn');
+    if (surrogaTodayBtn) {
+        surrogaTodayBtn.addEventListener('click', function () {
+            // Se c'è un mese corrente dal toggle Data Inizio, usalo
+            if (lastFullResults && lastFullResults.currentMonthIndex !== null) {
+                surrogaMonthInput.value = lastFullResults.currentMonthIndex;
+            } else {
+                // Fallback: metà del mutuo simulato
+                if (lastFullResults) {
+                    surrogaMonthInput.value = Math.max(1, Math.floor(lastFullResults.actualMonths / 2));
+                }
+            }
+            calculate();
+        });
+    }
+}
+
 const startDateTodayBtn = document.getElementById('startDateTodayBtn');
 if (startDateTodayBtn) {
     startDateTodayBtn.addEventListener('click', function () {
@@ -1001,6 +1044,9 @@ function calculate() {
         }
     }
 
+    // --- Calcolo Surroga ---
+    updateSurrogaUI(results);
+
     // --- Calcolo Soluzione Ibrida ---
     if (hybridToggle && hybridToggle.checked) {
         const hybridParams = {
@@ -1017,6 +1063,136 @@ function calculate() {
 
         const hybridResults = calculateHybridScenario(baseParamsForHybrid, hybridParams);
         updateHybridUI(hybridResults);
+    }
+}
+
+/* ==========================================================================
+ *  SURROGA UI
+ * ========================================================================== */
+
+function updateSurrogaUI(results) {
+    if (!surrogaToggle || !surrogaToggle.checked) return;
+    if (!results || !results.fullDataBalance || results.fullDataBalance.length === 0) {
+        if (surrogaResultBox) surrogaResultBox.style.display = 'none';
+        return;
+    }
+
+    const month = parseInt(surrogaMonthInput ? surrogaMonthInput.value : 1) || 1;
+    const newRate = parseFloat(surrogaNewRateInput ? surrogaNewRateInput.value : 0) || 0;
+    // Il campo UI è ora in MESI (non anni) → leggiamo direttamente come mesi
+    const newMonthsUI = parseInt(surrogaNewYearsInput ? surrogaNewYearsInput.value : 240) || 240;
+    const costPerizia = parseFloat(surrogaCostPeriziaInput ? surrogaCostPeriziaInput.value : 0) || 0;
+    const costIstru = parseFloat(surrogaCostIstruttoriaInput ? surrogaCostIstruttoriaInput.value : 0) || 0;
+    const costAssicMese = parseFloat(surrogaCostAssicInput ? surrogaCostAssicInput.value : 0) || 0;
+
+    const sr = calculateSurroga(results, {
+        month,
+        newRate,
+        newYears: newMonthsUI,  // passiamo mesi, engine NON moltiplica per 12
+        costPerizia,
+        costIstru,
+        costAssicMese
+    });
+
+    if (!sr) {
+        if (surrogaResultBox) surrogaResultBox.style.display = 'none';
+        if (surrogaResidualInfo) {
+            surrogaResidualInfo.textContent = '⚠️ Mese di surroga fuori dal piano di ammortamento o debito già estinto.';
+        }
+        return;
+    }
+
+    // Mostra il box risultati
+    if (surrogaResultBox) surrogaResultBox.style.display = 'block';
+
+    // Info debito residuo
+    if (surrogaResidualInfo) {
+        const totalMonthsLeft = sr.newMonths;
+        const durResidStr = Math.floor(totalMonthsLeft / 12) + ' anni' +
+            (totalMonthsLeft % 12 > 0 ? ' e ' + (totalMonthsLeft % 12) + ' mesi' : '');
+        surrogaResidualInfo.innerHTML =
+            `📌 Debito residuo al mese <strong>${sr.surrogaMonth}</strong>: <strong style="color:var(--text-primary)">${fmtCurr(sr.debitoResiduo)}</strong> — 
+             Nuovo mutuo: <strong style="color:var(--text-primary)">${fmtCurr(sr.debitoResiduo)}</strong> × ${newRate.toFixed(2)}% × ${durResidStr}`;
+    }
+
+    // Rate
+    if (surrogaRataAttuale) surrogaRataAttuale.textContent = fmtCurr(sr.rataAttuale);
+    if (surrogaRataNuova) surrogaRataNuova.textContent = fmtCurr(sr.rataNuova);
+
+    // Risparmio rata mensile
+    if (surrogaRataSaving) {
+        const diff = sr.risparmioRata;
+        surrogaRataSaving.textContent = (diff >= 0 ? '+' : '') + fmtCurr(diff) + '/mese';
+        surrogaRataSaving.style.color = diff >= 0 ? '#10b981' : '#f43f5e';
+    }
+
+    // Interessi residui
+    if (surrogaIntSenzaSurr) surrogaIntSenzaSurr.textContent = fmtCurr(sr.intSenzaSurr);
+    if (surrogaIntConSurr) surrogaIntConSurr.textContent = fmtCurr(sr.intConSurr);
+
+    // Risparmio netto
+    if (surrogaNetSaving) {
+        const netSav = sr.risparmioInteressiNetto;
+        surrogaNetSaving.textContent = (netSav >= 0 ? '+' : '') + fmtCurr(Math.abs(netSav));
+        surrogaNetSaving.style.color = netSav >= 0 ? '#10b981' : '#f43f5e';
+    }
+
+    // Break-even
+    if (surrogaBreakevenBox) {
+        const costiOneOff = costPerizia + costIstru;
+        if (costiOneOff > 0 && sr.breakEvenMonths !== null) {
+            surrogaBreakevenBox.style.display = 'block';
+            if (surrogaBreakeven) {
+                const beYears = Math.floor(sr.breakEvenMonths / 12);
+                const beMo = sr.breakEvenMonths % 12;
+                let beStr = '';
+                if (beYears > 0) beStr += beYears + ' anni';
+                if (beMo > 0) beStr += (beStr ? ' e ' : '') + beMo + ' mesi';
+                surrogaBreakeven.textContent = beStr || '< 1 mese';
+                // Colore: verde se < 2 anni, giallo < 5, rosso > 5
+                surrogaBreakeven.style.color =
+                    sr.breakEvenMonths <= 24 ? '#10b981' :
+                        sr.breakEvenMonths <= 60 ? '#eab308' : '#f43f5e';
+            }
+        } else if (costiOneOff > 0 && sr.risparmioRata <= 0) {
+            surrogaBreakevenBox.style.display = 'block';
+            if (surrogaBreakeven) {
+                surrogaBreakeven.textContent = '∞ (rata più alta)';
+                surrogaBreakeven.style.color = '#f43f5e';
+            }
+        } else {
+            surrogaBreakevenBox.style.display = 'none';
+        }
+    }
+
+    // Verdict
+    if (surrogaVerdict) {
+        const netSav = sr.risparmioInteressiNetto;
+        const rataSav = sr.risparmioRata;
+        let verdictText = '';
+        let verdictBg = '';
+        let verdictColor = '';
+
+        if (netSav > 500 && rataSav > 0) {
+            verdictText = `✅ Surroga conveniente! Risparmio netto di ${fmtCurr(netSav)} sugli interessi residui con una rata mensile più bassa di ${fmtCurr(rataSav)}.`;
+            verdictBg = 'rgba(16,185,129,0.1)';
+            verdictColor = '#10b981';
+        } else if (netSav > 0 && rataSav <= 0) {
+            verdictText = `⚠️ Risparmio interessi netto (${fmtCurr(netSav)}) ma la nuova rata è più alta di ${fmtCurr(-rataSav)}/mese. La durata si è allungata.`;
+            verdictBg = 'rgba(245,158,11,0.1)';
+            verdictColor = '#f59e0b';
+        } else if (netSav <= 0) {
+            verdictText = `🔴 La surroga non conviene: i costi e/o i nuovi interessi superano il risparmio (${fmtCurr(Math.abs(netSav))} aggiuntivi netti).`;
+            verdictBg = 'rgba(244,63,94,0.1)';
+            verdictColor = '#f43f5e';
+        } else {
+            verdictText = `💰 Risparmio netto stimato: ${fmtCurr(netSav)}. Valuta anche il break-even sui costi accessori.`;
+            verdictBg = 'rgba(234,179,8,0.1)';
+            verdictColor = '#eab308';
+        }
+        surrogaVerdict.textContent = verdictText;
+        surrogaVerdict.style.background = verdictBg;
+        surrogaVerdict.style.color = verdictColor;
     }
 }
 

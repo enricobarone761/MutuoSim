@@ -992,3 +992,51 @@ select:focus {
     font-size: 0.6rem;
     line-height: 1.1;
 }
+
+/* ===== Surroga Section ===== */
+#surrogaResultBox {
+    animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Righe risultati surroga: label a sinistra, valore a destra, mai a capo */
+.surr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+}
+
+.surr-row-sep {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 2px;
+}
+
+.surr-row-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding-right: 10px;
+}
+
+.surr-row-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    text-align: right;
+}

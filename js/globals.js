@@ -126,4 +126,27 @@ const outTotalMonths = document.getElementById('outTotalMonths');
 const outRepaymentPercent = document.getElementById('outRepaymentPercent');
 const outRepaymentEndDate = document.getElementById('outRepaymentEndDate');
 
+// --- Surroga ---
+const surrogaToggle = document.getElementById('surrogaToggle');
+const surrogaSection = document.getElementById('surroga-section');
+const surrogaMonthInput = document.getElementById('surrogaMonth');
+const surrogaNewRateInput = document.getElementById('surrogaNewRate');
+const surrogaNewYearsInput = document.getElementById('surrogaNewYears');
+const surrogaCostPeriziaInput = document.getElementById('surrogaCostPerizia');
+const surrogaCostIstruttoriaInput = document.getElementById('surrogaCostIstruttoria');
+const surrogaCostAssicInput = document.getElementById('surrogaCostAssic');
+const surrogaResultBox = document.getElementById('surrogaResultBox');
+const surrogaResidualInfo = document.getElementById('surrogaResidualInfo');
+const surrogaRataAttuale = document.getElementById('surrogaRataAttuale');
+const surrogaRataNuova = document.getElementById('surrogaRataNuova');
+const surrogaRataSaving = document.getElementById('surrogaRataSaving');
+const surrogaIntSenzaSurr = document.getElementById('surrogaIntSenzaSurr');
+const surrogaIntConSurr = document.getElementById('surrogaIntConSurr');
+const surrogaNetSaving = document.getElementById('surrogaNetSaving');
+const surrogaBreakevenBox = document.getElementById('surrogaBreakevenBox');
+const surrogaBreakeven = document.getElementById('surrogaBreakeven');
+const surrogaVerdict = document.getElementById('surrogaVerdict');
+
+
+
 

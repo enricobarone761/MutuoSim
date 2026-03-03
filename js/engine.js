@@ -313,3 +313,105 @@ function calculateHybridScenario(baseParams, hybridParams) {
         totalSaving: totalPaidA - totalPaidB
     };
 }
+
+/**
+ * Calcola lo scenario di Surroga: trasferimento del mutuo a una nuova banca con
+ * nuovo tasso e/o nuova durata a partire dal mese indicato.
+ *
+ * @param {Object} baseSimResults  - Risultato completo di runSimulation() (con generateChart:true)
+ * @param {Object} surrogaParams   - Parametri della surroga
+ * @param {number} surrogaParams.month        - Mese in cui avviene la surroga (1-based)
+ * @param {number} surrogaParams.newRate      - Nuovo tasso annuo (%)
+ * @param {number} surrogaParams.newYears     - Nuova durata (anni)
+ * @param {number} surrogaParams.costPerizia  - Costo perizia (€)
+ * @param {number} surrogaParams.costIstru    - Costo istruttoria (€)
+ * @param {number} surrogaParams.costAssicMese- Costo assicurazione mensile aggiuntiva (€)
+ * @param {number} surrogaParams.currentRate  - Tasso corrente al mese di surroga (%)
+ * @returns {Object|null} Risultati confronto con/senza surroga, o null se dati insufficienti
+ */
+function calculateSurroga(baseSimResults, surrogaParams) {
+    const {
+        month,
+        newRate,
+        newYears,   // ora contiene mesi (non anni) — il campo UI è stato cambiato in mesi
+        costPerizia,
+        costIstru,
+        costAssicMese,
+        currentRate
+    } = surrogaParams;
+
+    if (!baseSimResults || !baseSimResults.fullDataBalance || baseSimResults.fullDataBalance.length === 0) {
+        return null;
+    }
+
+    const totalMonths = baseSimResults.fullDataBalance.length;
+
+    // Mese di surroga 1-based → indice 0-based
+    const surrogaIdx = Math.min(month - 1, totalMonths - 1);
+    if (surrogaIdx < 0) return null;
+
+    // Debito residuo al mese di surroga
+    const debitoResiduo = baseSimResults.fullDataBalance[surrogaIdx];
+    if (debitoResiduo <= 0.01) return null;
+
+    // Rata corrente al mese di surroga (dal piano di ammortamento)
+    const schedRow = baseSimResults.amortizationSchedule[surrogaIdx] || null;
+    const rataAttuale = schedRow ? schedRow.payment : 0;
+
+    // ── Scenario A: continua senza surroga ──
+    // Interessi residui dal mese successivo alla surroga fino alla fine
+    let intSenzaSurr = 0;
+    for (let i = surrogaIdx; i < baseSimResults.amortizationSchedule.length; i++) {
+        intSenzaSurr += baseSimResults.amortizationSchedule[i].interest;
+    }
+
+    // ── Scenario B: surroga ──
+    // newYears contiene già mesi (il campo UI è in mesi dal refactoring)
+    const newMonths = Math.max(1, newYears);   // nessuna moltiplicazione × 12
+    const newMonthlyRate = Math.max(0, newRate / 100 / 12);
+    let rataNuova;
+    if (newMonthlyRate === 0) {
+        rataNuova = debitoResiduo / newMonths;
+    } else {
+        rataNuova = (debitoResiduo * newMonthlyRate) / (1 - Math.pow(1 + newMonthlyRate, -newMonths));
+    }
+
+    // Interessi totali nuovo mutuo
+    const intConSurr = (rataNuova * newMonths) - debitoResiduo;
+
+    // Costi accessori totali della surroga
+    const costiAccessori = (costPerizia || 0) + (costIstru || 0);
+    const costiAssicTotali = (costAssicMese || 0) * newMonths;
+    const costiTotali = costiAccessori + costiAssicTotali;
+
+    // Risparmio interessi lordo (prima dei costi)
+    const risparmioInteressiLordo = intSenzaSurr - intConSurr;
+
+    // Risparmio netto (dopo costi)
+    const risparmioInteressiNetto = risparmioInteressiLordo - costiTotali;
+
+    // Risparmio rata mensile
+    const risparmioRata = rataAttuale - rataNuova;
+
+    // Break-even: quanti mesi per recuperare i costi con il risparmio mensile sulla rata
+    let breakEvenMonths = null;
+    if (costiAccessori > 0 && risparmioRata > 0) {
+        breakEvenMonths = Math.ceil(costiAccessori / risparmioRata);
+    }
+
+    return {
+        debitoResiduo,
+        rataAttuale,
+        rataNuova,
+        risparmioRata,
+        intSenzaSurr,
+        intConSurr,
+        risparmioInteressiLordo,
+        costiTotali,
+        risparmioInteressiNetto,
+        breakEvenMonths,
+        newMonths,
+        surrogaMonth: month
+    };
+}
+
