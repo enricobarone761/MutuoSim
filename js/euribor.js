@@ -84,8 +84,11 @@ function updateEuriborUI() {
     const range = getEuriborDateRange(tenor);
     const meta = euriborAllData._meta || {};
 
+    const globalStartDateActive = startDateToggle && startDateToggle.checked && startDateInput && startDateInput.value;
+    const syncMsg = globalStartDateActive ? `<br><small style="color:#fb923c;">📍 In sincronia con Data Inizio Mutuo</small>` : '';
+
     euriborStatus.innerHTML = `✅ Euribor <strong>${tenor}</strong>: ${count} mesi (${range.min} → ${range.max})<br>
-        <small style="opacity:0.6">Aggiornato: ${meta.updated || 'N/D'}</small>`;
+        <small style="opacity:0.6">Aggiornato: ${meta.updated || 'N/D'}</small>${syncMsg}`;
     euriborStatus.style.color = 'var(--accent)';
 
     // Aggiorna limiti date picker
@@ -105,7 +108,19 @@ function getEuriborConfig() {
     }
 
     const tenor = euriborTenorSelect.value;
-    const startMonth = euriborStartInput.value;
+
+    // Se è attiva la data inizio globale, usiamo quella invece di quella specifica Euribor
+    let startMonth = euriborStartInput.value;
+    const globalStartDateActive = startDateToggle && startDateToggle.checked && startDateInput && startDateInput.value;
+
+    if (globalStartDateActive) {
+        startMonth = startDateInput.value;
+        // Nascondiamo il campo specifico euribor per evitare confusione
+        euriborStartInput.parentElement.style.display = 'none';
+    } else {
+        euriborStartInput.parentElement.style.display = 'block';
+    }
+
     const spread = parseFloat(euriborSpreadInput.value) || 0;
     const years = parseInt(yearsInput.value) || 0;
     const totalMonths = years * 12;

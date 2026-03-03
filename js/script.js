@@ -174,11 +174,15 @@ if (hybridToggle) {
 if (startDateToggle) {
     startDateToggle.addEventListener('change', function () {
         startDateSection.style.display = this.checked ? 'block' : 'none';
+        if (typeof updateEuriborUI === 'function') updateEuriborUI();
         calculate();
     });
 }
 if (startDateInput) {
-    startDateInput.addEventListener('change', calculate);
+    startDateInput.addEventListener('change', () => {
+        if (typeof updateEuriborUI === 'function') updateEuriborUI();
+        calculate();
+    });
 }
 const startDateTodayBtn = document.getElementById('startDateTodayBtn');
 if (startDateTodayBtn) {
@@ -511,10 +515,12 @@ function calculate() {
         startDate = new Date(startDateInput.value + '-01');
         const nowSystem = new Date();
         const now = new Date(nowSystem.getFullYear(), nowSystem.getMonth(), 1);
-        const diffMs = now - startDate;
-        const diffMonths = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30.44));
-        if (diffMonths >= 0 && diffMonths <= results.actualMonths) {
-            currentMonthIndex = diffMonths;
+        const diffMonths = (now.getFullYear() - startDate.getFullYear()) * 12
+            + (now.getMonth() - startDate.getMonth());
+        // +1 perché m nel grafico è 1-based (mese 1 = primo mese del mutuo)
+        const currentMonthIndex1Based = diffMonths + 1;
+        if (currentMonthIndex1Based >= 1 && currentMonthIndex1Based <= results.actualMonths) {
+            currentMonthIndex = currentMonthIndex1Based;
         }
     }
 

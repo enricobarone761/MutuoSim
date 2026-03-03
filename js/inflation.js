@@ -237,7 +237,8 @@ function updateInflationUI(params) {
         startMonth, totalMonths, fallbackRate
     );
 
-    const todayIdx = currentMonthIndex || 0;
+    // currentMonthIndex è 1-based (mese 1 = primo mese del mutuo); convertiamo a 0-based per l'array inflRates
+    const todayIdx = currentMonthIndex ? currentMonthIndex - 1 : 0;
 
     // Calcola costo reale
     const realCost = calcRealCost(
