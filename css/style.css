@@ -301,14 +301,42 @@ select:focus {
     color: var(--text-primary);
     width: 100%;
     border: 1px solid var(--border-color);
-    /* rimosso bordino dashed */
     margin-top: 10px;
-    /* spaziatura corretta */
 }
 
 .btn-add:hover {
     background-color: var(--bg-input-hover);
     border-color: var(--text-muted);
+}
+
+.btn-small {
+    padding: 10px 12px;
+    height: 41px;
+    /* Matching standard input height precisely */
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-small:hover {
+    background: var(--bg-input-hover);
+    border-color: var(--text-muted);
+    color: var(--text-primary);
+}
+
+.btn-small:active {
+    transform: scale(0.96);
 }
 
 .btn-secondary {
@@ -1039,4 +1067,54 @@ select:focus {
     color: var(--text-primary);
     white-space: nowrap;
     text-align: right;
+}
+
+/* ===== Costs & TAEG Compaction ===== */
+.costs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.costs-grid .input-group {
+    margin-bottom: 0;
+}
+
+.costs-grid label {
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.costs-grid input {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+}
+
+.taeg-box-compact {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(16, 185, 129, 0.04);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--border-radius);
+    margin: 12px 0 24px 0;
+}
+
+.taeg-box-compact .label {
+    margin: 0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.taeg-box-compact .value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #10b981;
 }

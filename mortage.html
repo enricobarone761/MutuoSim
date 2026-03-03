@@ -223,10 +223,7 @@
                         <label>Data Inizio Mutuo</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="month" id="startDateInput" value="" style="flex: 1;">
-                            <button id="startDateTodayBtn" title="Imposta mese corrente" style="background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.4);
-                                       color: #fb923c; border-radius: 6px; padding: 6px 10px; cursor: pointer;
-                                       font-size: 0.78rem; font-weight: 600; white-space: nowrap;
-                                       transition: background 0.2s;">Oggi</button>
+                            <button id="startDateTodayBtn" class="btn-small" title="Imposta mese corrente">Oggi</button>
                         </div>
                     </div>
                 </div>
@@ -371,34 +368,35 @@
                 <h3>Costi Iniziali e TAEG <span class="info-icon"
                         data-tooltip="Spese una tantum (istruttoria, perizia, notaio) che incidono sul costo reale del mutuo.">i</span>
                 </h3>
-                <div class="input-group">
-                    <label>Istruttoria (€)</label>
-                    <input type="number" id="costIstruttoria" value="0" step="10" min="0">
-                </div>
-                <div class="input-group">
-                    <label>Perizia (€)</label>
-                    <input type="number" id="costPerizia" value="0" step="10" min="0">
-                </div>
-                <div class="input-group">
-                    <label>Notaio (€)</label>
-                    <input type="number" id="costNotaio" value="0" step="10" min="0">
-                </div>
-                <div class="input-group">
-                    <label>Imposta Sostitutiva (€)</label>
-                    <input type="number" id="costImposta" value="0" step="10" min="0">
-                </div>
-                <div class="input-group">
-                    <label>Assicurazione (Mensile €) <span class="info-icon"
-                            data-tooltip="Costo mensile di polizze vita o scoppio/incendio obbligatorie.">i</span></label>
-                    <input type="number" id="costAssicurazione" value="0" step="1" min="0">
+                <div class="costs-grid">
+                    <div class="input-group">
+                        <label>Istruttoria (€)</label>
+                        <input type="number" id="costIstruttoria" value="0" step="10" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Perizia (€)</label>
+                        <input type="number" id="costPerizia" value="0" step="10" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Notaio (€)</label>
+                        <input type="number" id="costNotaio" value="0" step="10" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Imposta Sost. (€)</label>
+                        <input type="number" id="costImposta" value="0" step="10" min="0">
+                    </div>
+                    <div class="input-group" style="grid-column: span 2;">
+                        <label>Assicurazione (Mensile €) <span class="info-icon"
+                                data-tooltip="Costo mensile di polizze vita o scoppio/incendio obbligatorie.">i</span></label>
+                        <input type="number" id="costAssicurazione" value="0" step="1" min="0">
+                    </div>
                 </div>
 
                 <!-- Box risultato TAEG -->
-                <div class="result-box"
-                    style="margin-top: 16px; margin-bottom: 24px; padding: 12px; border-color: rgba(16, 185, 129, 0.3);">
+                <div class="taeg-box-compact">
                     <span class="label">TAEG (Stima) <span class="info-icon"
                             data-tooltip="Il costo reale percentuale del mutuo, comprensivo di interessi e spese accessorie.">i</span></span>
-                    <span class="value" id="outTaeg" style="font-size: 1.2rem; color: #10b981;">--</span>
+                    <span class="value" id="outTaeg">--</span>
                 </div>
 
                 <hr>
@@ -668,10 +666,8 @@
                             <div style="display: flex; gap: 6px; align-items: center;">
                                 <input type="number" id="surrogaMonth" value="1" step="1" min="1" max="360"
                                     style="flex:1; min-width:0;">
-                                <button id="surrogaTodayBtn" title="Imposta mese corrente del mutuo"
-                                    style="background:rgba(234,179,8,0.12); border:1px solid rgba(234,179,8,0.4);
-                                           color:#eab308; border-radius:6px; padding:7px 8px; cursor:pointer;
-                                           font-size:0.75rem; font-weight:600; white-space:nowrap; flex-shrink:0;">Oggi</button>
+                                <button id="surrogaTodayBtn" class="btn-small"
+                                    title="Imposta mese corrente del mutuo">Oggi</button>
                             </div>
                         </div>
                         <div class="input-group" style="margin-bottom:0;">
@@ -775,6 +771,8 @@
                     <!-- Campo assicurazione (compatibilità JS, non mostrato) -->
                     <input type="hidden" id="surrogaCostAssic" value="0">
                 </div>
+
+                <hr>
 
                 <h3>Salvataggio &amp; Confronto Scenari</h3>
                 <div id="scenarios-container" style="margin-bottom: 12px;">
