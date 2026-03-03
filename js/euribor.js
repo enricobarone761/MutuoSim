@@ -115,7 +115,14 @@ function getEuriborConfig() {
         return { active: false, rates: [] };
     }
 
-    const rates = getEuriborRatesForMortgage(startMonth, totalMonths, spread, baseRateFallback, tenor);
+    let rates = getEuriborRatesForMortgage(startMonth, totalMonths, spread, baseRateFallback, tenor);
+
+    // Applica CAP se > 0
+    const rawCap = parseFloat(euriborCapInput ? euriborCapInput.value : 0) || 0;
+    const capValue = rawCap > 0 ? rawCap : Infinity;
+    if (capValue < Infinity) {
+        rates = rates.map(r => Math.min(capValue, r));
+    }
 
     // Conta quanti mesi hanno dati storici reali
     const data = getEuriborSeriesData(tenor);
@@ -128,5 +135,12 @@ function getEuriborConfig() {
         month++; if (month > 12) { month = 1; year++; }
     }
 
-    return { active: true, rates, historicalCount };
+    return { active: true, rates, historicalCount, capValue };
+}
+
+// --- Event Listener CAP ---
+if (euriborCapInput) {
+    euriborCapInput.addEventListener('input', () => {
+        if (typeof calculate === 'function') calculate();
+    });
 }

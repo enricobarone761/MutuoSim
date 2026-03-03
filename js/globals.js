@@ -114,6 +114,9 @@ const startDateInput = document.getElementById('startDateInput');
 // Gli altri DOM refs sono privati in inflation.js
 const inflationRateInput = document.getElementById('inflationRate');
 
+// --- Euribor CAP ---
+const euriborCapInput = document.getElementById('euriborCap');
+
 // --- Avanzamento Rimborso ---
 const repaymentProgressContainer = document.getElementById('repaymentProgressContainer');
 const repaymentProgressNoDate = document.getElementById('repaymentProgressNoDate');
