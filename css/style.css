@@ -525,6 +525,7 @@ select:focus {
     border-radius: 99px;
     z-index: 1;
     box-shadow: 0 0 8px rgba(99, 102, 241, 0.35);
+    cursor: grab;
 }
 
 /* Hidden native range inputs */

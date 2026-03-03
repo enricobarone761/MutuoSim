@@ -209,6 +209,87 @@ function resetChartRange() {
     }
 }
 
+/* ─── track dragging ───────────────────────────────────────────────────────── */
+
+(function initTrackDragging() {
+    let isDraggingTrack = false;
+    let startX = 0;
+    let startMin = 0;
+    let startMax = 0;
+
+    function handleTrackMouseDown(e) {
+        // Ignoriamo click se non è il tasto sinistro
+        if (e.button !== undefined && e.button !== 0) return;
+
+        isDraggingTrack = true;
+        startX = e.clientX || (e.touches && e.touches[0].clientX);
+        startMin = parseInt(chartRangeMin.value);
+        startMax = parseInt(chartRangeMax.value);
+
+        rangeTrack.style.cursor = 'grabbing';
+        document.body.style.userSelect = 'none'; // Evita selezione testo durante il drag
+    }
+
+    function handleTrackMouseMove(e) {
+        if (!isDraggingTrack) return;
+
+        // Previene lo scroll della pagina durante il drag su touch
+        if (e.cancelable) e.preventDefault();
+
+        const currentX = e.clientX || (e.touches && e.touches[0].clientX);
+        const deltaX = currentX - startX;
+
+        const trackWrapper = rangeTrack.parentElement;
+        const trackWidth = trackWrapper.clientWidth;
+        const totalMonths = parseInt(chartRangeMax.max);
+
+        if (trackWidth === 0 || isNaN(totalMonths)) return;
+
+        // Calcolo quanti mesi corrispondono a un pixel
+        const monthsPerPixel = (totalMonths - 1) / trackWidth;
+        let deltaMonths = Math.round(deltaX * monthsPerPixel);
+
+        let newMin = startMin + deltaMonths;
+        let newMax = startMax + deltaMonths;
+
+        const rangeSize = startMax - startMin;
+
+        // Limiti
+        if (newMin < 1) {
+            newMin = 1;
+            newMax = newMin + rangeSize;
+        }
+        if (newMax > totalMonths) {
+            newMax = totalMonths;
+            newMin = newMax - rangeSize;
+        }
+
+        // Aggiorna solo se i valori sono cambiati
+        if (parseInt(chartRangeMin.value) !== newMin || parseInt(chartRangeMax.value) !== newMax) {
+            chartRangeMin.value = newMin;
+            chartRangeMax.value = newMax;
+            handleRangeChange();
+        }
+    }
+
+    function handleTrackMouseUp() {
+        if (!isDraggingTrack) return;
+        isDraggingTrack = false;
+        rangeTrack.style.cursor = '';
+        document.body.style.userSelect = '';
+    }
+
+    // Listener sul track per l'inizio del drag
+    rangeTrack.addEventListener('mousedown', handleTrackMouseDown);
+    rangeTrack.addEventListener('touchstart', handleTrackMouseDown, { passive: true });
+
+    // Listener globali per movimento e rilascio
+    window.addEventListener('mousemove', handleTrackMouseMove);
+    window.addEventListener('touchmove', handleTrackMouseMove, { passive: false });
+    window.addEventListener('mouseup', handleTrackMouseUp);
+    window.addEventListener('touchend', handleTrackMouseUp);
+})();
+
 /* ─── sampling ─────────────────────────────────────────────────────────────── */
 
 /**
