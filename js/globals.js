@@ -146,6 +146,8 @@ const surrogaNetSaving = document.getElementById('surrogaNetSaving');
 const surrogaBreakevenBox = document.getElementById('surrogaBreakevenBox');
 const surrogaBreakeven = document.getElementById('surrogaBreakeven');
 const surrogaVerdict = document.getElementById('surrogaVerdict');
+const surrDurContractBtn = document.getElementById('surrDurContractBtn');
+const surrDurEffectiveBtn = document.getElementById('surrDurEffectiveBtn');
 
 
 

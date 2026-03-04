@@ -656,54 +656,59 @@
                     </div>
                 </div>
 
-                <div id="surroga-section" style="display:none;">
+                <div id="surroga-section" style="display:none; margin-top:16px;">
 
-                    <!-- Riga 1: Mese + Tasso -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <!-- Gruppo 1: Quando e Quanto -->
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-bottom: 16px;">
                         <div class="input-group" style="margin-bottom:0;">
                             <label>Mese Surroga <span class="info-icon"
-                                    data-tooltip="Il mese del piano in cui si effettua la surroga. Il debito residuo diventa il capitale del nuovo mutuo.">i</span></label>
+                                    data-tooltip="Il mese del piano in cui si effettua la surroga.">i</span></label>
                             <div style="display: flex; gap: 6px; align-items: center;">
                                 <input type="number" id="surrogaMonth" value="1" step="1" min="1" max="360"
                                     style="flex:1; min-width:0;">
                                 <button id="surrogaTodayBtn" class="btn-small"
-                                    title="Imposta mese corrente del mutuo">Oggi</button>
+                                    title="Imposta mese corrente">OGGI</button>
                             </div>
                         </div>
                         <div class="input-group" style="margin-bottom:0;">
                             <label>Nuovo Tasso (%) <span class="info-icon"
-                                    data-tooltip="Il TAN annuo proposto dalla nuova banca.">i</span></label>
+                                    data-tooltip="Il TAN proposto dalla nuova banca.">i</span></label>
                             <input type="number" id="surrogaNewRate" value="2.5" step="0.05" min="0" max="25">
                         </div>
                     </div>
 
-                    <!-- Riga 2: Durata + Perizia + Istruttoria -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                        <div>
-                            <label
-                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Durata
-                                (mesi) <span class="info-icon"
-                                    data-tooltip="Durata del nuovo mutuo in mesi. Precompilata con i mesi residui esatti, senza arrotondamento, cos&igrave; con lo stesso tasso la rata &egrave; identica.">i</span></label>
+                    <!-- Gruppo 2: Durata (Focus Centralizzato) -->
+                    <div
+                        style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.07); margin-bottom: 16px;">
+                        <label
+                            style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px; display:block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Nuova
+                            Durata Residua (Mesi)</label>
+                        <div style="display: flex; gap: 10px; align-items: stretch;">
                             <input type="number" id="surrogaNewYears" value="240" step="1" min="1" max="360"
-                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
-                        </div>
-                        <div>
-                            <label
-                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Perizia
-                                (€) <span class="info-icon"
-                                    data-tooltip="Costo perizia della nuova banca.">i</span></label>
-                            <input type="number" id="surrogaCostPerizia" value="0" step="50" min="0"
-                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
-                        </div>
-                        <div>
-                            <label
-                                style="font-size:0.75rem; color:var(--text-muted); margin-bottom:4px; display:block;">Istruttoria
-                                (€) <span class="info-icon"
-                                    data-tooltip="Spese di istruttoria della nuova banca.">i</span></label>
-                            <input type="number" id="surrogaCostIstruttoria" value="0" step="50" min="0"
-                                style="width:100%; padding:8px 10px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:0.95rem; outline:none;">
+                                style="width:75px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--border-radius); color:var(--text-primary); font-size:1rem; outline:none; text-align: center;">
+                            <div style="display: flex; gap: 4px; flex: 1;">
+                                <button id="surrDurContractBtn" class="btn-small"
+                                    style="flex:1; font-size: 0.68rem; height: 32px; padding: 0;">📜 Contratto</button>
+                                <button id="surrDurEffectiveBtn" class="btn-small"
+                                    style="flex:1; font-size: 0.68rem; height: 32px; padding: 0;">⚡ Reale</button>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Gruppo 3: Costi della nuova banca -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div class="input-group" style="margin-bottom:0;">
+                            <label style="font-size: 0.7rem; opacity: 0.8;">Perizia (€)</label>
+                            <input type="number" id="surrogaCostPerizia" value="0" step="50" min="0"
+                                style="padding: 6px 10px; font-size: 0.85rem;">
+                        </div>
+                        <div class="input-group" style="margin-bottom:0;">
+                            <label style="font-size: 0.7rem; opacity: 0.8;">Istruttoria (€)</label>
+                            <input type="number" id="surrogaCostIstruttoria" value="0" step="50" min="0"
+                                style="padding: 6px 10px; font-size: 0.85rem;">
+                        </div>
+                    </div>
+
 
                     <!-- Risultati Surroga -->
                     <div id="surrogaResultBox"

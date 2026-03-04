@@ -198,10 +198,12 @@ if (surrogaToggle) {
             if (surrogaMonthInput) surrogaMonthInput.value = surrogaM;
 
             // 2. Calcola mesi residui esatti a partire dal mese di surroga appena impostato
-            if (surrogaNewYearsInput && lastFullResults.actualMonths) {
-                const residualMonths = Math.max(1, lastFullResults.actualMonths - surrogaM);
-                // Il campo ora è in MESI (non anni) → nessun arrotondamento
-                surrogaNewYearsInput.value = residualMonths;
+            if (surrogaNewYearsInput) {
+                const surrM = parseInt(surrogaMonthInput.value) || 1;
+                const durs = getSurrogaDurations(lastFullResults, surrM);
+                // Default su Contrattuale (per confronto onesto della rata)
+                surrogaNewYearsInput.value = durs.contractual;
+                updateSurrogaDurButtons(durs.contractual, durs);
             }
         }
         calculate();
@@ -222,6 +224,23 @@ if (surrogaToggle) {
                     surrogaMonthInput.value = Math.max(1, Math.floor(lastFullResults.actualMonths / 2));
                 }
             }
+            calculate();
+        });
+    }
+
+    if (surrDurContractBtn && surrDurEffectiveBtn) {
+        surrDurContractBtn.addEventListener('click', () => {
+            const surrM = parseInt(surrogaMonthInput.value) || 1;
+            const durs = getSurrogaDurations(lastFullResults, surrM);
+            surrogaNewYearsInput.value = durs.contractual;
+            updateSurrogaDurButtons(durs.contractual, durs);
+            calculate();
+        });
+        surrDurEffectiveBtn.addEventListener('click', () => {
+            const surrM = parseInt(surrogaMonthInput.value) || 1;
+            const durs = getSurrogaDurations(lastFullResults, surrM);
+            surrogaNewYearsInput.value = durs.effective;
+            updateSurrogaDurButtons(durs.effective, durs);
             calculate();
         });
     }
@@ -1079,8 +1098,11 @@ function updateSurrogaUI(results) {
 
     const month = parseInt(surrogaMonthInput ? surrogaMonthInput.value : 1) || 1;
     const newRate = parseFloat(surrogaNewRateInput ? surrogaNewRateInput.value : 0) || 0;
-    // Il campo UI è ora in MESI (non anni) → leggiamo direttamente come mesi
     const newMonthsUI = parseInt(surrogaNewYearsInput ? surrogaNewYearsInput.value : 240) || 240;
+
+    // Aggiorna lo stato dei pulsanti di scelta rapida durata
+    const durs = getSurrogaDurations(results, month);
+    updateSurrogaDurButtons(newMonthsUI, durs);
     const costPerizia = parseFloat(surrogaCostPeriziaInput ? surrogaCostPeriziaInput.value : 0) || 0;
     const costIstru = parseFloat(surrogaCostIstruttoriaInput ? surrogaCostIstruttoriaInput.value : 0) || 0;
     const costAssicMese = parseFloat(surrogaCostAssicInput ? surrogaCostAssicInput.value : 0) || 0;
@@ -1194,6 +1216,62 @@ function updateSurrogaUI(results) {
         surrogaVerdict.style.background = verdictBg;
         surrogaVerdict.style.color = verdictColor;
     }
+}
+
+
+
+/**
+ * Calcola le due opzioni di durata residua per la surroga.
+ */
+function getSurrogaDurations(results, m) {
+    if (!results) return { contractual: 240, effective: 240 };
+
+    // 1. Contrattuale: mesi residui dalla durata originale (ignorando estinzioni)
+    const totalOrigMonths = (parseInt(yearsInput.value) || 0) * 12;
+    const contractual = Math.max(1, totalOrigMonths - m + 1);
+
+    // 2. Reale: mesi residui basati sul debito *attuale* (con risparmi passati) e rata *attuale*
+    const surrogaIdx = Math.min(m - 1, results.fullDataBalance.length - 1);
+    if (surrogaIdx < 0) return { contractual, effective: contractual };
+
+    const B = results.fullDataBalance[surrogaIdx];
+    const schedRow = results.amortizationSchedule[surrogaIdx];
+    const I = schedRow ? schedRow.payment : 0;
+    const R = (results.fullDataRate && results.fullDataRate[surrogaIdx]) ? results.fullDataRate[surrogaIdx] : (parseFloat(rateInput.value) || 0);
+    const r = R / 100 / 12;
+
+    let effective = contractual;
+    if (B > 0.01 && I > (B * r)) {
+        if (r === 0) {
+            effective = Math.ceil(B / I);
+        } else {
+            effective = Math.ceil(-Math.log(1 - (B * r / I)) / Math.log(1 + r));
+        }
+    }
+
+    return {
+        contractual: Math.min(360, Math.max(1, contractual)),
+        effective: Math.min(360, Math.max(1, effective))
+    };
+}
+
+/**
+ * Aggiorna lo stato visivo dei pulsanti durata surroga.
+ */
+function updateSurrogaDurButtons(currentVal, durs) {
+    if (!surrDurContractBtn || !surrDurEffectiveBtn) return;
+
+    // Base style che mima .btn-small ma permette l'override del colore attivo
+    const activeStyle = "flex:1; font-size: 0.68rem; padding: 0; background:#eab308; color:black; border:1px solid #eab308; font-weight:700; box-shadow:0 0 8px rgba(234,179,8,0.3); opacity:1;";
+    const inactiveStyle = "flex:1; font-size: 0.68rem; padding: 0; background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-muted); opacity:0.7;";
+
+    const val = parseInt(currentVal);
+
+    surrDurContractBtn.style = (val === durs.contractual) ? activeStyle : inactiveStyle;
+    surrDurContractBtn.innerHTML = `Contratto<br>(${durs.contractual})`;
+
+    surrDurEffectiveBtn.style = (val === durs.effective) ? activeStyle : inactiveStyle;
+    surrDurEffectiveBtn.innerHTML = `Reale<br>(${durs.effective})`;
 }
 
 // Avvio Iniziale
