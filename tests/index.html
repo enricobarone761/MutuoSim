@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MutuoSim Test Suite</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #8b5cf6;
+            text-align: center;
+        }
+
+        .summary {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .all-pass {
+            background-color: #065f46;
+            color: #34d399;
+        }
+
+        .some-fail {
+            background-color: #7f1d1d;
+            color: #f87171;
+        }
+
+        .group-title {
+            border-bottom: 1px solid #334155;
+            padding-bottom: 5px;
+            margin-top: 30px;
+            color: #94a3b8;
+        }
+
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .test-item.pass {
+            border-left: 4px solid #10b981;
+        }
+
+        .test-item.fail {
+            border-left: 4px solid #ef4444;
+        }
+
+        .error-msg {
+            font-size: 0.85rem;
+            color: #fca5a5;
+            margin-top: 5px;
+            font-family: monospace;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>MutuoSim Test Suite</h1>
+    <div id="test-results">In caricamento test...</div>
+
+    <!-- Caricamento scripts applicativi -->
+    <script src="../js/engine.js"></script>
+    <script src="../js/utils.js"></script>
+
+    <!-- Framework di test -->
+    <script src="simple-test.js"></script>
+
+    <!-- File di test -->
+    <script src="engine.test.js"></script>
+    <script src="utils.test.js"></script>
+    <script src="inflation.test.js"></script>
+    <script src="euribor.test.js"></script>
+
+    <script>
+        // Eseguì i test una volta caricato tutto
+        document.addEventListener('DOMContentLoaded', () => {
+            TinyTest.render();
+        });
+    </script>
+</body>
+
+</html>
